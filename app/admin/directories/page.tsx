@@ -42,10 +42,12 @@ export default function AdminDirectoriesPage() {
     })
       .then(res => res.json())
       .then(data => {
-        console.log("API RESPONSE:", data)
-        setDirectories(data)
-        setLoading(false)
-      })
+  console.log("API RESPONSE:", data)
+
+  setDirectories(Array.isArray(data.data) ? data.data : [])
+
+  setLoading(false)
+})
       .catch(err => {
         console.error(err)
         setLoading(false)

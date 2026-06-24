@@ -72,16 +72,16 @@ useEffect(() => {
       websiteUrl: profile.websiteUrl || "",
       avatarUrl: profile.avatarUrl || "",
 
-      companyName: profile.company?.name || "",
-      companyTagline: profile.company?.tagline || "",
-      companyDescription: profile.company?.description || "",
-      companyIndustryId: profile.company?.industryId?.toString() || "",
-      companyLocation: profile.company?.location || "",
-      companyAddress: profile.company?.address || "",
-      companySize: profile.company?.companySize || "",
-      companyWebsite: profile.company?.website || "",
-      companyLogoUrl: profile.company?.logoUrl || "",
-      companyCoverImageUrl: profile.company?.coverImageUrl || "",
+      companyName: profile.Company?.name || "",
+      companyTagline: profile.Company?.tagline || "",
+      companyDescription: profile.Company?.description || "",
+      companyIndustryId: profile.Company?.industryId?.toString() || "",
+      companyLocation: profile.Company?.location || "",
+      companyAddress: profile.Company?.address || "",
+      companySize: profile.Company?.companySize || "",
+      companyWebsite: profile.Company?.website || "",
+      companyLogoUrl: profile.Company?.logoUrl || "",
+      companyCoverImageUrl: profile.Company?.coverImageUrl || "",
     })
   }
 

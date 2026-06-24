@@ -38,6 +38,7 @@ const nextConfig = {
       { protocol: "https", hostname: "i.pravatar.cc" },
       { protocol: "https", hostname: "ui-avatars.com" },
       { protocol: "http", hostname: "localhost", port: "5000" },
+      { protocol: "https", hostname: "example.com" },
     ],
   },
 }

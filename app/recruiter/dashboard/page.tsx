@@ -29,12 +29,11 @@ type Recruiter = {
   headline?: string
   location?: string
   avatarUrl?: string
-  company: {
+  Company?: {
     name: string
     slug: string
     logoUrl?: string
     isVerified: boolean
-
   }
 }
 
@@ -87,13 +86,19 @@ useEffect(() => {
 
       /* DASHBOARD */
       const dashboardRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/recruiters/dashboard`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      )
+  `${process.env.NEXT_PUBLIC_API_URL}/api/recruiters/dashboard`,
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Cache-Control": "no-cache",
+    },
+    cache: "no-store",
+  }
+)
 
       const dashboardData = await dashboardRes.json()
+      console.log("DASHBOARD RESPONSE:", dashboardData)
+      console.log("ARTICLES:", dashboardData.articles)
 
       setDashboard({
         jobsCount: dashboardData.jobsCount ?? 0,
@@ -501,9 +506,9 @@ if (stored) {
               </p>
             )}
 
-            {recruiter?.company?.slug && (
+            {recruiter?.Company?.slug && (
   <Link
-    href={`/company/${recruiter.company.slug}`}
+    href={`/company/${recruiter.Company.slug}`}
     className="inline-block mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
   >
     View Company Profile →

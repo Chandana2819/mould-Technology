@@ -51,7 +51,19 @@ export default function AdminEventsPage() {
         }
       )
       const data = await res.json()
-      setEvents(data)
+      
+
+console.log("EVENTS RESPONSE:", data)
+
+setEvents(
+  Array.isArray(data)
+    ? data
+    : Array.isArray(data.data)
+    ? data.data
+    : Array.isArray(data.events)
+    ? data.events
+    : []
+)
     } catch (err) {
       console.error("Failed to fetch events", err)
     } finally {

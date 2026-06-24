@@ -33,7 +33,7 @@ export default function BannerListPage() {
     )
 
     const data = await res.json()
-    setBanners(data)
+    setBanners(Array.isArray(data) ? data : [])
   }
 
   useEffect(() => {

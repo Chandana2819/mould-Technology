@@ -13,38 +13,41 @@ export default function AdminMagazinesPage() {
 
   const [showIssueForm, setShowIssueForm] = useState(false) // ✅ NEW STATE
 
-  useEffect(() => {
-    const token = localStorage.getItem("token")
 
-    async function fetchData() {
-      try {
-        const [magRes, authRes, coverRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines/admin`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines/authors`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines/cover-stories`),
-        ])
+   useEffect(() => {
+  const token = localStorage.getItem("token")
 
-        const mags = await magRes.json()
-        const auths = await authRes.json()
-        const covers = await coverRes.json()
+  async function fetchData() {
+    try {
+      const [magRes, authRes, coverRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines/admin`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines/authors`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines/cover-stories`),
+      ])
 
-        setMagazines(Array.isArray(mags) ? mags : [])
-        setAuthors(Array.isArray(auths) ? auths : [])
-        setCoverStories(Array.isArray(covers) ? covers : [])
-      } catch (error) {
-        console.error("Fetch error:", error)
-        setMagazines([])
-        setAuthors([])
-        setCoverStories([])
-      } finally {
-        setLoading(false)
-      }
+      console.log("API URL:", process.env.NEXT_PUBLIC_API_URL)
+      console.log("magRes", magRes.status, magRes.url)
+      console.log("authRes", authRes.status, authRes.url)
+      console.log("coverRes", coverRes.status, coverRes.url)
+
+      const magsText = await magRes.text()
+      const authsText = await authRes.text()
+      const coversText = await coverRes.text()
+
+      console.log("MAGS:", magsText)
+      console.log("AUTHS:", authsText)
+      console.log("COVERS:", coversText)
+    } catch (error) {
+      console.error("Fetch error:", error)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    fetchData()
-  }, [])
+  fetchData()
+}, [])
 
   async function deleteMagazine(id: number) {
     const token = localStorage.getItem("token")

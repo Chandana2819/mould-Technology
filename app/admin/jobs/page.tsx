@@ -59,9 +59,15 @@ export default function AdminJobsPage() {
     })
       .then(res => res.json())
       .then(data => {
-        setCompanies(data)
-        setLoading(false)
-      })
+  const companiesData = Array.isArray(data)
+    ? data
+    : Array.isArray(data.data)
+    ? data.data
+    : []
+
+  setCompanies(companiesData)
+  setLoading(false)
+})
       .catch(err => {
         console.error(err)
         setLoading(false)

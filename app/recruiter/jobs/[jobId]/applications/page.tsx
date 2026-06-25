@@ -9,7 +9,7 @@ type Application = {
   coverNote: string | null
   status: string
   createdAt: string
-  user: {
+  User: {
     fullName: string | null
     email: string
     headline: string | null
@@ -102,10 +102,10 @@ export default function JobApplicantsPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-semibold">
-                    {app.user.fullName || "Candidate"}
+                    {app.User.fullName || "Candidate"}
                   </h3>
                   <p className="text-sm text-gray-500">
-                    {app.user.headline || "—"}
+                    {app.User.headline || "—"}
                   </p>
                 </div>
 
@@ -127,7 +127,7 @@ export default function JobApplicantsPage() {
               <div className="flex flex-wrap gap-4 text-xs text-gray-500 mt-3">
                 <span className="flex items-center gap-1">
                   <Mail size={12} />
-                  {app.user.email}
+                  {app.User.email}
                 </span>
 
                 <span className="flex items-center gap-1">

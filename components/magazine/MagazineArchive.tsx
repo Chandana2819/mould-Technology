@@ -18,13 +18,25 @@ export default function MagazineArchive() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines`)
-      .then(res => res.json())
-      .then(data => {
-        setMagazines(data)
-        setLoading(false)
-      })
-  }, [])
+  fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines`)
+    .then((res) => res.json())
+    .then((data) => {
+      console.log("Magazines API Response:", data);
+
+      if (Array.isArray(data)) {
+        setMagazines(data);
+      } else {
+        setMagazines([]);
+      }
+    })
+    .catch((err) => {
+      console.error("Error fetching magazines:", err);
+      setMagazines([]);
+    })
+    .finally(() => {
+      setLoading(false);
+    });
+}, []);
 
   if (loading) return <p className="p-10">Loading...</p>
 

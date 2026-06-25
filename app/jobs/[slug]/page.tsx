@@ -131,7 +131,7 @@ export default function JobDetailPage() {
                   <div className="flex items-center gap-2 mt-2">
                     <span className="flex items-center gap-1.5 text-sm font-semibold text-blue-700">
                       <Building2 size={14} />
-                      {job.company?.name || job.companyName || "N/A"}
+                      {job.Company?.name || job.companyName || "N/A"}
                     </span>
                     <span className="text-gray-300">•</span>
                     <span className="text-xs text-gray-400">
@@ -285,7 +285,7 @@ export default function JobDetailPage() {
   )}
 </div>
               <p className="text-sm font-semibold text-gray-800">
-                {job.company?.name || job.companyName || "N/A"}
+                {job.Company?.name || job.companyName || "N/A"}
               </p>
             </div>
 

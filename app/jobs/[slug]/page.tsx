@@ -15,6 +15,7 @@ import {
   Bookmark,
   ArrowLeft,
 } from "lucide-react"
+import { ApplySection } from "@/components/ApplySection"
 
 export default function JobDetailPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -24,6 +25,7 @@ export default function JobDetailPage() {
   const [otherJobs, setOtherJobs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
+  const [showApplyForm, setShowApplyForm] = useState(false)
 
   useEffect(() => {
     if (!slug) return
@@ -51,13 +53,15 @@ export default function JobDetailPage() {
   }, [slug])
 
   const handleApply = () => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}")
-    if (!user?.id) {
-      router.push("/login")
-      return
-    }
-    router.push(`/signup`)
+  const user = JSON.parse(localStorage.getItem("user") || "{}")
+
+  if (!user?.id) {
+    router.push("/login")
+    return
   }
+
+  setShowApplyForm(true)
+}
 
   if (loading)
     return (
@@ -196,40 +200,35 @@ export default function JobDetailPage() {
 
             <div className="mt-8 pt-5 border-t border-gray-100">
 
-              {job.isExternal ? (
-                <div className="flex flex-wrap gap-3">
+            {job.isExternal ? (
+  <div className="flex flex-wrap gap-3">
+    {job.applyUrl && (
+      <a
+        href={job.applyUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-7 py-2.5 rounded-full"
+      >
+        Apply on Company Website
+      </a>
+    )}
+  </div>
+) : (
+  <>
+    <button
+      onClick={handleApply}
+      className="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-semibold px-7 py-2.5 rounded-full transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
+    >
+      Apply for this position
+    </button>
 
-                  {job.applyUrl && (
-                    <a
-                      href={job.applyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-7 py-2.5 rounded-full transition-all shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
-                    >
-                      Apply on Company Website
-                    </a>
-                  )}
-
-                  {job.linkedinUrl && (
-                    <a
-                      href={job.linkedinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-[#0A66C2] hover:bg-[#004182] text-white text-sm font-semibold px-7 py-2.5 rounded-full transition-all shadow"
-                    >
-                      Apply on LinkedIn
-                    </a>
-                  )}
-
-                </div>
-              ) : (
-                <button
-                  onClick={handleApply}
-                  className="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-semibold px-7 py-2.5 rounded-full transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
-                >
-                  Apply for this position
-                </button>
-              )}
+    {showApplyForm && (
+      <div className="mt-6 border-t pt-6">
+        <ApplySection jobId={job.id} />
+      </div>
+    )}
+  </>
+)}
 
             </div>
           </div>

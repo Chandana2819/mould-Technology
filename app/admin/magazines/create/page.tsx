@@ -35,19 +35,26 @@ export default function CreateMagazinePage() {
   /* ================= FETCH AUTHORS + COVER STORIES ================= */
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
+  const token = localStorage.getItem("token")
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines/creation-data`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then(res => res.json())
-      .then(data => {
-        setAuthors(data.authors || [])
-        setCoverStories(data.coverStories || [])
-      })
-  }, [])
+  async function loadData() {
+    const [authorsRes, coverRes] = await Promise.all([
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines/authors`),
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/magazines/cover-stories`),
+    ])
+
+    const authors = await authorsRes.json()
+    const coverStories = await coverRes.json()
+
+    console.log("Authors:", authors)
+    console.log("Cover Stories:", coverStories)
+
+    setAuthors(authors)
+    setCoverStories(coverStories)
+  }
+
+  loadData()
+}, [])
 
   /* ================= FILE UPLOAD ================= */
 

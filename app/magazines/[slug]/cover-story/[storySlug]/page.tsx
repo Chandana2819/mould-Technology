@@ -1,10 +1,10 @@
 import Image from "next/image"
 
 type Props = {
-  params: {
+  params: Promise<{
     slug: string
     storySlug: string
-  }
+  }>
 }
 
 async function getStory(storySlug: string) {
@@ -19,7 +19,7 @@ async function getStory(storySlug: string) {
 }
 
 export default async function CoverStoryPage({ params }: Props) {
-  const { storySlug } = params
+  const { storySlug } = await  params
   const story = await getStory(storySlug)
 
   const publishedDate = new Date(story.createdAt).toLocaleDateString(

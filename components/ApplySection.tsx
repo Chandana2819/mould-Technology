@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 export function ApplySection({ jobId }: { jobId: number }) {
   const router = useRouter()
   const [coverNote, setCoverNote] = useState("")
-  const [resumeUrl, setResumeUrl] = useState("")
+ const [resume, setResume] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
 
@@ -24,21 +24,25 @@ export function ApplySection({ jobId }: { jobId: number }) {
 
     const token = localStorage.getItem("token")
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/applications`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          jobId,
-          resumeUrl,
-          coverNote,
-        }),
-      }
-    )
+const formData = new FormData()
+
+formData.append("jobId", jobId.toString())
+formData.append("coverNote", coverNote)
+
+if (resume) {
+  formData.append("resume", resume)
+}
+
+const res = await fetch(
+  `${process.env.NEXT_PUBLIC_API_URL}/api/applications`,
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  }
+)
 
     const data = await res.json()
 
@@ -60,9 +64,13 @@ return (
     <div className="space-y-4">
 
       <input
-        placeholder="Resume URL (optional)"
-        value={resumeUrl}
-        onChange={(e) => setResumeUrl(e.target.value)}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png"
+        onChange={(e) => {
+          if (e.target.files?.length) {
+            setResume(e.target.files[0])
+          }
+        }}
         className="w-full border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
 

@@ -1,19 +1,33 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Mail, Clock, FileText, Check, X } from "lucide-react"
 
 type Application = {
   id: number
+  resumeUrl: string | null
   coverNote: string | null
   status: string
   createdAt: string
+
   User: {
+    id: number
     fullName: string | null
     email: string
     headline: string | null
   }
+
+  Job: {
+    title: string
+    location: string
+    employmentType: string
+
+    Company: {
+      name: string
+    } | null
+  } | null
 }
 
 export default function JobApplicantsPage() {
@@ -101,10 +115,14 @@ export default function JobApplicantsPage() {
               {/* HEADER */}
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-semibold">
+                  <Link
+                    href={`/recruiter/jobs/${jobId}/applications/${app.id}`}
+                    className="text-xl font-bold text-blue-600 hover:underline"
+                  >
                     {app.User?.fullName || "Candidate"}
-                  </h3>
-                  <p className="text-sm text-gray-500">
+                  </Link>
+
+                  <p className="text-gray-600 mt-1">
                     {app.User?.headline || "—"}
                   </p>
                 </div>
@@ -123,7 +141,7 @@ export default function JobApplicantsPage() {
                 </span>
               </div>
 
-              {/* META */}
+              {/* ✅ META - Email and Date only */}
               <div className="flex flex-wrap gap-4 text-xs text-gray-500 mt-3">
                 <span className="flex items-center gap-1">
                   <Mail size={12} />
@@ -136,15 +154,64 @@ export default function JobApplicantsPage() {
                 </span>
               </div>
 
+              {/* ✅ JOB DETAILS - Moved here with border top */}
+              <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm border-t pt-4">
+                <div>
+                  <span className="font-semibold">Job:</span>{" "}
+                  {app.Job?.title}
+                </div>
+
+                <div>
+                  <span className="font-semibold">Company:</span>{" "}
+                  {app.Job?.Company?.name}
+                </div>
+
+                <div>
+                  <span className="font-semibold">Location:</span>{" "}
+                  {app.Job?.location}
+                </div>
+
+                <div>
+                  <span className="font-semibold">Employment Type:</span>{" "}
+                  {app.Job?.employmentType}
+                </div>
+              </div>
+
               {/* COVER NOTE */}
               {app.coverNote && (
-                <div className="mt-4 text-sm text-gray-700">
-                  <FileText size={14} className="inline mr-1" />
-                  {app.coverNote}
+                <div className="mt-5">
+                  <p className="font-semibold mb-2">
+                    Cover Note
+                  </p>
+
+                  <div className="bg-gray-100 rounded-lg p-3 text-sm text-gray-700">
+                    {app.coverNote}
+                  </div>
+                </div>
+              )}
+
+              {/* RESUME */}
+              {app.resumeUrl && (
+                <div className="mt-5">
+                  <p className="font-semibold mb-2">
+                    Resume
+                  </p>
+
+                  <a
+                    href={`${app.resumeUrl}?dl=1`}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <FileText size={18} />
+                    Download Resume
+                  </a>
                 </div>
               )}
 
               {/* ACTIONS */}
+              <hr className="my-5" />
               {app.status === "applied" && (
                 <div className="flex gap-3 mt-4">
                   <button

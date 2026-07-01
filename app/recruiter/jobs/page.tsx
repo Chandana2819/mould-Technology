@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MapPin, Users, Eye } from "lucide-react"
+import { MapPin, Users, Eye, Pencil } from "lucide-react"
 import Link from "next/link"
 import { useRecruiterGuard } from "@/lib/useRecruiterGuard"
 
@@ -10,7 +10,12 @@ type Job = {
   title: string
   slug: string
   location: string
+  createdAt: string
+  views: number
   employmentType?: string
+  _count?: {
+    JobApplication: number
+  }
 }
 
 export default function MyJobsPage() {
@@ -57,6 +62,31 @@ export default function MyJobsPage() {
 
     loadJobs()
   }, [allowed])
+
+  function getPostedText(createdAt: string) {
+    const created = new Date(createdAt)
+    const now = new Date()
+
+    const diffMs = now.getTime() - created.getTime()
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffMinutes < 60) {
+      return "Posted just now"
+    }
+
+    if (diffHours < 24) {
+      return `Posted ${diffHours} hour${diffHours > 1 ? "s" : ""} ago`
+    }
+
+    if (diffDays === 1) {
+      return "Posted yesterday"
+    }
+
+    return `Posted ${diffDays} days ago`
+  }
 
   if (!allowed) return null
 
@@ -111,24 +141,41 @@ export default function MyJobsPage() {
 
               <div className="flex justify-between">
                 <span className="text-sm text-gray-400">
-                  Posted recently
+                  {getPostedText(job.createdAt)}
                 </span>
 
-                <div className="flex gap-3">
-                  <Link
-                    href={`/jobs/${job.slug}`}
-                    className="flex items-center gap-1 text-sm text-blue-600"
-                  >
-                    <Eye size={14} /> View
-                  </Link>
+               <div className="flex flex-wrap gap-4">
 
-                  <Link
-                    href={`/recruiter/jobs/${job.id}/applications`}
-                    className="flex items-center gap-1 text-sm text-gray-600"
-                  >
-                    <Users size={14} /> Applicants
-                  </Link>
-                </div>
+  <span className="flex items-center gap-1 text-sm text-gray-600">
+    <Eye size={14} />
+    {job.views} Views
+  </span>
+
+  <Link
+    href={`/jobs/${job.slug}`}
+    className="flex items-center gap-1 text-sm text-blue-600"
+  >
+    <Eye size={14} />
+    View
+  </Link>
+
+  <Link
+    href={`/recruiter/jobs/${job.id}/edit`}
+    className="flex items-center gap-1 text-sm text-green-600"
+  >
+    <Pencil size={14} />
+    Edit
+  </Link>
+
+  <Link
+    href={`/recruiter/jobs/${job.id}/applications`}
+    className="flex items-center gap-1 text-sm text-gray-600"
+  >
+    <Users size={14} />
+    Applicants ({job._count?.JobApplication ?? 0})
+  </Link>
+
+</div>
               </div>
             </div>
           ))}

@@ -10,6 +10,7 @@ type Job = {
   slug: string
   description: string
   location: string
+  createdAt: string
   employmentType?: string
    views: number
   Company?: {
@@ -43,6 +44,31 @@ export default function JobFeed({ isPublic = false }: { isPublic?: boolean }) {
     temp.innerHTML = html
     return temp.textContent || temp.innerText || ""
   }
+
+function getPostedText(createdAt: string) {
+  const created = new Date(createdAt);
+  const now = new Date();
+
+  const diffMs = now.getTime() - created.getTime();
+
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMinutes < 60) {
+    return "Posted just now";
+  }
+
+  if (diffHours < 24) {
+    return `Posted ${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  }
+
+  if (diffDays === 1) {
+    return "Posted yesterday";
+  }
+
+  return `Posted ${diffDays} days ago`;
+}
 
   /** 🔐 Apply is protected */
   function handleApply(slug: string) {
@@ -99,9 +125,9 @@ export default function JobFeed({ isPublic = false }: { isPublic?: boolean }) {
               {job.location}
             </span>
             <span className="flex items-center gap-1">
-              <Clock size={12} />
-              Recently posted
-            </span>
+  <Clock size={12} />
+  {getPostedText(job.createdAt)}
+</span>
             <span className="flex items-center gap-1">
               <Users size={12} />
               Actively hiring

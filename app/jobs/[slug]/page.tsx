@@ -26,31 +26,55 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [showApplyForm, setShowApplyForm] = useState(false)
+  const [user, setUser] = useState<any>(null) // Added user state
 
   useEffect(() => {
-    if (!slug) return
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
+    }
+  }, [])
 
-    // increment views
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/jobs/${slug}/view`, {
-      method: "POST",
-    }).catch(() => {})
+useEffect(() => {
+  if (!slug) return;
 
-    // job detail
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/jobs/${slug}`)
-      .then((res) => res.json())
-      .then((data) => setJob(data))
+  async function loadJob() {
+    try {
+      // increment first
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/jobs/${slug}/view`,
+        {
+          method: "POST",
+        }
+      );
 
-    // similar jobs
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/jobs`)
-      .then((res) => res.json())
-      .then((jobs) => {
-        const filtered = jobs
-          .filter((j: any) => j.slug !== slug)
-          .slice(0, 5)
-        setOtherJobs(filtered)
-      })
-      .finally(() => setLoading(false))
-  }, [slug])
+      // then fetch updated job
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/jobs/${slug}`
+      );
+
+      const data = await res.json();
+      setJob(data);
+
+      // similar jobs
+      const jobsRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/jobs`
+      );
+
+      const jobs = await jobsRes.json();
+
+      setOtherJobs(
+        jobs.filter((j: any) => j.slug !== slug).slice(0, 5)
+      );
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadJob();
+}, [slug]);
 
   const handleApply = () => {
   const user = JSON.parse(localStorage.getItem("user") || "{}")
@@ -215,17 +239,21 @@ export default function JobDetailPage() {
   </div>
 ) : (
   <>
-    <button
-      onClick={handleApply}
-      className="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-semibold px-7 py-2.5 rounded-full transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
-    >
-      Apply for this position
-    </button>
+    {user?.role === "candidate" && (
+      <>
+        <button
+          onClick={handleApply}
+          className="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-semibold px-7 py-2.5 rounded-full transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
+        >
+          Apply for this position
+        </button>
 
-    {showApplyForm && (
-      <div className="mt-6 border-t pt-6">
-        <ApplySection jobId={job.id} />
-      </div>
+        {showApplyForm && (
+          <div className="mt-6 border-t pt-6">
+            <ApplySection jobId={job.id} />
+          </div>
+        )}
+      </>
     )}
   </>
 )}

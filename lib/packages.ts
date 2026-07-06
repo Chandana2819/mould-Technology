@@ -91,7 +91,7 @@ export const SPONSORED_CONTENT_PACKAGES = [
 ] as const;
 
 export const RECRUITMENT_PACKAGES = [
-  { name: "Single Job (30 Days)", price: 2000 },
+  { id: "single-job", name: "Single Job (Monthly · 30 Days)", price: 2000, durationDays: 30 },
 ] as const;
 
 export function formatInr(amount: number): string {

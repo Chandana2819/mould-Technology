@@ -16,6 +16,8 @@ import {
 } from "lucide-react"
 import { useRecruiterGuard } from "@/lib/useRecruiterGuard"
 import Image from "next/image"
+import PostJobButton from "@/components/recruiter/PostJobButton"
+import type { JobPostingEligibility } from "@/lib/jobPosting"
 
 /* ================= TYPES ================= */
 
@@ -65,10 +67,15 @@ type DashboardData = {
   subscription?: {
     plan: string
     planLabel: string
+    displayPlan?: string
+    displayPlanLabel?: string
+    basePlanLabel?: string
     expiresAt: string | null
+    recruitmentExpiresAt?: string | null
     jobPostingCredits: number
   }
   recentPurchases?: PackagePurchase[]
+  jobPosting?: JobPostingEligibility
 }
 
 type PackagePurchase = {
@@ -148,6 +155,7 @@ useEffect(() => {
         recentActivity: dashboardData.recentActivity ?? [],
         subscription: dashboardData.subscription ?? undefined,
         recentPurchases: dashboardData.recentPurchases ?? [],
+        jobPosting: dashboardData.jobPosting ?? undefined,
       })
 
       /* PROFILE */
@@ -244,23 +252,33 @@ if (stored) {
           <div className="grid md:grid-cols-4 gap-6">
             <KpiCard
               title="Current Plan"
-              value={dashboard.subscription?.planLabel ?? "Free"}
+              value={dashboard.subscription?.displayPlanLabel ?? dashboard.subscription?.planLabel ?? "Free"}
               icon={<Crown />}
               color="bg-gradient-to-br from-indigo-500 to-indigo-600"
               subtitle={
-                dashboard.subscription?.expiresAt
-                  ? `Expires ${new Date(dashboard.subscription.expiresAt).toLocaleDateString()}`
-                  : dashboard.subscription?.plan === "free"
-                    ? "Free tier"
-                    : "Active"
+                dashboard.subscription?.recruitmentExpiresAt
+                  ? `Recruitment expires ${new Date(dashboard.subscription.recruitmentExpiresAt).toLocaleDateString()} · Base: ${dashboard.subscription.basePlanLabel ?? "Free"}`
+                  : dashboard.subscription?.expiresAt
+                    ? `Expires ${new Date(dashboard.subscription.expiresAt).toLocaleDateString()}`
+                    : dashboard.subscription?.plan === "free"
+                      ? "Free tier"
+                      : "Active"
               }
             />
             <KpiCard
-              title="Job Credits"
-              value={dashboard.subscription?.jobPostingCredits ?? 0}
+              title="Job Slots Left"
+              value={
+                dashboard.jobPosting?.isUnlimited
+                  ? "∞"
+                  : dashboard.jobPosting?.remaining ?? 0
+              }
               icon={<CreditCard />}
               color="bg-gradient-to-br from-emerald-500 to-emerald-600"
-              subtitle="Available postings"
+              subtitle={
+                dashboard.jobPosting?.isUnlimited
+                  ? "Unlimited postings"
+                  : `${dashboard.jobPosting?.activeJobs ?? 0} of ${dashboard.jobPosting?.effectiveLimit ?? 0} used`
+              }
             />
             <KpiCard
               title="Total Applications"
@@ -291,16 +309,21 @@ if (stored) {
                 />
               </Link>
 
-              <Link
-                href="/recruiter/jobs/new"
+              <PostJobButton
+                eligibility={dashboard.jobPosting}
+                variant="card"
                 className="group p-5 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100 hover:border-green-200"
               >
                 <ActionCard
                   icon={<TrendingUp className="text-green-600 group-hover:scale-110 transition-transform" />}
                   title="Post a Job"
-                  desc="Create new listing"
+                  desc={
+                    dashboard.jobPosting?.canPost
+                      ? "Create new listing"
+                      : "Upgrade to post more"
+                  }
                 />
-              </Link>
+              </PostJobButton>
 
               <Link
                 href="/recruiter/articles"
@@ -342,12 +365,11 @@ if (stored) {
               <div className="text-center py-8">
                 <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-sm text-gray-500">No recent jobs found</p>
-                <Link
-                  href="/recruiter/jobs/new"
-                  className="inline-block mt-3 text-sm text-blue-600 hover:text-blue-700"
-                >
-                  Post your first job
-                </Link>
+                <PostJobButton
+                  eligibility={dashboard.jobPosting}
+                  label="Post your first job"
+                  className="inline-block mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                />
               </div>
             ) : (
               <div className="overflow-hidden rounded-lg border border-gray-200">

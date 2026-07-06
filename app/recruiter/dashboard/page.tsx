@@ -16,6 +16,13 @@ import {
 } from "lucide-react"
 import { useRecruiterGuard } from "@/lib/useRecruiterGuard"
 import Image from "next/image"
+import CreateArticleButton from "@/components/recruiter/CreateArticleButton"
+import PostJobButton from "@/components/recruiter/PostJobButton"
+import RecruiterAnalyticsCharts, {
+  type RecruiterAnalytics,
+} from "@/components/recruiter/RecruiterAnalyticsCharts"
+import type { JobPostingEligibility } from "@/lib/jobPosting"
+import type { ContentLimitEligibility } from "@/lib/packageLimits"
 
 /* ================= TYPES ================= */
 
@@ -50,7 +57,7 @@ type Directory = {
 type Article = {
   id: number
   title: string
-  status: "DRAFT" | "PUBLISHED"
+  status: string
   createdAt: string
 }
 
@@ -65,10 +72,18 @@ type DashboardData = {
   subscription?: {
     plan: string
     planLabel: string
+    displayPlan?: string
+    displayPlanLabel?: string
+    basePlanLabel?: string
     expiresAt: string | null
+    recruitmentExpiresAt?: string | null
     jobPostingCredits: number
   }
   recentPurchases?: PackagePurchase[]
+  jobPosting?: JobPostingEligibility
+  articlePosting?: ContentLimitEligibility
+  productListings?: ContentLimitEligibility
+  analytics?: RecruiterAnalytics
 }
 
 type PackagePurchase = {
@@ -96,6 +111,43 @@ const ACTIVITY_DOT_COLORS: Record<RecentActivity["color"], string> = {
   green: "bg-green-400",
   yellow: "bg-yellow-400",
   red: "bg-red-400",
+}
+
+function articleLimitLabel(eligibility?: ContentLimitEligibility | null) {
+  if (!eligibility) return "Manage content"
+  if (eligibility.isUnlimited) return "Unlimited this year"
+  if (eligibility.plan === "free" && !eligibility.canCreate) return "Upgrade to publish"
+  return `${eligibility.remaining ?? 0} left this year`
+}
+
+function productLimitLabel(eligibility?: ContentLimitEligibility | null) {
+  if (!eligibility) return "Manage listings"
+  if (eligibility.isUnlimited) return "Unlimited listings"
+  return `${eligibility.remaining ?? 0} of ${eligibility.effectiveLimit ?? 0} left`
+}
+
+function formatArticleQuickDesc(eligibility?: ContentLimitEligibility | null) {
+  if (!eligibility) return "Manage content"
+  if (eligibility.isUnlimited) return "Unlimited this year"
+  if (eligibility.plan === "free" || eligibility.effectiveLimit === 0) {
+    return "Upgrade to publish"
+  }
+  return `${eligibility.remaining ?? 0} left this year`
+}
+
+function formatProductQuickDesc(eligibility?: ContentLimitEligibility | null) {
+  if (!eligibility) return "Manage directories"
+  if (eligibility.isUnlimited) return "Unlimited directories"
+  return `${eligibility.remaining ?? 0} directory slots left`
+}
+
+function formatLimitValue(
+  eligibility: ContentLimitEligibility | null | undefined,
+  remainingKey: "remaining" = "remaining"
+) {
+  if (!eligibility) return "—"
+  if (eligibility.isUnlimited) return "∞"
+  return eligibility[remainingKey] ?? 0
 }
 
 /* ================= PAGE ================= */
@@ -134,6 +186,11 @@ useEffect(() => {
   }
 )
 
+      if (!dashboardRes.ok) {
+        const errData = await dashboardRes.json().catch(() => ({}))
+        throw new Error(errData.error || "Failed to load dashboard")
+      }
+
       const dashboardData = await dashboardRes.json()
       console.log("DASHBOARD RESPONSE:", dashboardData)
       console.log("ARTICLES:", dashboardData.articles)
@@ -148,6 +205,10 @@ useEffect(() => {
         recentActivity: dashboardData.recentActivity ?? [],
         subscription: dashboardData.subscription ?? undefined,
         recentPurchases: dashboardData.recentPurchases ?? [],
+        jobPosting: dashboardData.jobPosting ?? undefined,
+        articlePosting: dashboardData.articlePosting ?? undefined,
+        productListings: dashboardData.productListings ?? undefined,
+        analytics: dashboardData.analytics ?? undefined,
       })
 
       /* PROFILE */
@@ -241,26 +302,64 @@ if (stored) {
           </div>
 
           {/* KPI CARDS */}
-          <div className="grid md:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             <KpiCard
               title="Current Plan"
-              value={dashboard.subscription?.planLabel ?? "Free"}
+              value={dashboard.subscription?.displayPlanLabel ?? dashboard.subscription?.planLabel ?? "Free"}
               icon={<Crown />}
               color="bg-gradient-to-br from-indigo-500 to-indigo-600"
               subtitle={
-                dashboard.subscription?.expiresAt
-                  ? `Expires ${new Date(dashboard.subscription.expiresAt).toLocaleDateString()}`
-                  : dashboard.subscription?.plan === "free"
-                    ? "Free tier"
-                    : "Active"
+                dashboard.subscription?.recruitmentExpiresAt
+                  ? `Recruitment expires ${new Date(dashboard.subscription.recruitmentExpiresAt).toLocaleDateString()} · Base: ${dashboard.subscription.basePlanLabel ?? "Free"}`
+                  : dashboard.subscription?.expiresAt
+                    ? `Expires ${new Date(dashboard.subscription.expiresAt).toLocaleDateString()}`
+                    : dashboard.subscription?.plan === "free"
+                      ? "Free tier"
+                      : "Active"
               }
             />
             <KpiCard
-              title="Job Credits"
-              value={dashboard.subscription?.jobPostingCredits ?? 0}
+              title="Job Slots Left"
+              value={
+                dashboard.jobPosting?.isUnlimited
+                  ? "∞"
+                  : dashboard.jobPosting?.remaining ?? 0
+              }
               icon={<CreditCard />}
               color="bg-gradient-to-br from-emerald-500 to-emerald-600"
-              subtitle="Available postings"
+              subtitle={
+                dashboard.jobPosting?.isUnlimited
+                  ? "Unlimited postings"
+                  : `${dashboard.jobPosting?.activeJobs ?? 0} of ${dashboard.jobPosting?.effectiveLimit ?? 0} used`
+              }
+            />
+            <KpiCard
+              title="Articles Left"
+              value={formatLimitValue(dashboard.articlePosting)}
+              icon={<FileText />}
+              color="bg-gradient-to-br from-indigo-400 to-indigo-500"
+              subtitle={
+                !dashboard.articlePosting
+                  ? "Loading plan limits"
+                  : dashboard.articlePosting.isUnlimited
+                    ? "Unlimited this year"
+                    : dashboard.articlePosting.plan === "free"
+                      ? "Not on Free plan"
+                      : `${dashboard.articlePosting.articlesThisYear ?? 0} of ${dashboard.articlePosting.effectiveLimit} used this year`
+              }
+            />
+            <KpiCard
+              title="Directory Slots Left"
+              value={formatLimitValue(dashboard.productListings)}
+              icon={<FolderOpen />}
+              color="bg-gradient-to-br from-amber-400 to-amber-500"
+              subtitle={
+                !dashboard.productListings
+                  ? "Loading plan limits"
+                  : dashboard.productListings.isUnlimited
+                    ? "Unlimited directories"
+                    : `${dashboard.productListings.activeListings ?? 0} of ${dashboard.productListings.effectiveLimit} directories used`
+              }
             />
             <KpiCard
               title="Total Applications"
@@ -275,6 +374,14 @@ if (stored) {
               color="bg-gradient-to-br from-orange-400 to-orange-500"
             />
           </div>
+
+          {dashboard.analytics && (
+            <RecruiterAnalyticsCharts
+              analytics={dashboard.analytics}
+              applicationsCount={dashboard.applicationsCount}
+              shortlistedCount={dashboard.shortlistedCount}
+            />
+          )}
 
           {/* QUICK ACTIONS */}
           <div>
@@ -291,16 +398,21 @@ if (stored) {
                 />
               </Link>
 
-              <Link
-                href="/recruiter/jobs/new"
+              <PostJobButton
+                eligibility={dashboard.jobPosting}
+                variant="card"
                 className="group p-5 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100 hover:border-green-200"
               >
                 <ActionCard
                   icon={<TrendingUp className="text-green-600 group-hover:scale-110 transition-transform" />}
                   title="Post a Job"
-                  desc="Create new listing"
+                  desc={
+                    dashboard.jobPosting?.canPost
+                      ? "Create new listing"
+                      : "Upgrade to post more"
+                  }
                 />
-              </Link>
+              </PostJobButton>
 
               <Link
                 href="/recruiter/articles"
@@ -309,7 +421,7 @@ if (stored) {
                 <ActionCard
                   icon={<FileText className="text-indigo-600 group-hover:scale-110 transition-transform" />}
                   title="Articles"
-                  desc="Manage content"
+                  desc={formatArticleQuickDesc(dashboard.articlePosting)}
                 />
               </Link>
 
@@ -320,7 +432,7 @@ if (stored) {
                 <ActionCard
                   icon={<FolderOpen className="text-amber-600 group-hover:scale-110 transition-transform" />}
                   title="Directories"
-                  desc="Browse listings"
+                  desc={formatProductQuickDesc(dashboard.productListings)}
                 />
               </Link>
             </div>
@@ -342,12 +454,11 @@ if (stored) {
               <div className="text-center py-8">
                 <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-sm text-gray-500">No recent jobs found</p>
-                <Link
-                  href="/recruiter/jobs/new"
-                  className="inline-block mt-3 text-sm text-blue-600 hover:text-blue-700"
-                >
-                  Post your first job
-                </Link>
+                <PostJobButton
+                  eligibility={dashboard.jobPosting}
+                  label="Post your first job"
+                  className="inline-block mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                />
               </div>
             ) : (
               <div className="overflow-hidden rounded-lg border border-gray-200">
@@ -377,15 +488,23 @@ if (stored) {
 
           {/* ================= ARTICLES ================= */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-semibold text-gray-900">My Articles</h2>
-              <Link
-                href="/recruiter/articles/create"
+              <CreateArticleButton
+                eligibility={dashboard.articlePosting}
                 className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                + Create Article
-              </Link>
+                label="+ Create Article"
+              />
             </div>
+            {dashboard.articlePosting && (
+              <p className="text-sm text-gray-500 mb-5">
+                {dashboard.articlePosting.isUnlimited
+                  ? "Unlimited technical articles this year"
+                  : dashboard.articlePosting.plan === "free"
+                    ? "Technical articles require Basic plan or higher"
+                    : `${dashboard.articlePosting.remaining ?? 0} of ${dashboard.articlePosting.effectiveLimit ?? 0} articles remaining this year`}
+              </p>
+            )}
 
             {!dashboard.articles || dashboard.articles.length === 0 ? (
               <div className="text-center py-8">
@@ -420,13 +539,17 @@ if (stored) {
                           </div>
                         </td>
                         <td className="px-4 py-4 text-center">
-                          {article.status === "PUBLISHED" ? (
+                          {article.status === "APPROVED" ? (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Published
+                              Approved
+                            </span>
+                          ) : article.status === "PENDING" ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              Pending
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              Draft
+                              {article.status}
                             </span>
                           )}
                         </td>
@@ -448,15 +571,22 @@ if (stored) {
 
           {/* ================= DIRECTORIES ================= */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-semibold text-gray-900">My Directories</h2>
               <Link
-                href="/recruiter/directories/new"
+                href="/recruiter/directory/new"
                 className="text-sm bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 + Add Directory
               </Link>
             </div>
+            {dashboard.productListings && (
+              <p className="text-sm text-gray-500 mb-5">
+                {dashboard.productListings.isUnlimited
+                  ? "Unlimited supplier directories"
+                  : `${dashboard.productListings.remaining ?? 0} of ${dashboard.productListings.effectiveLimit ?? 0} directory slots remaining`}
+              </p>
+            )}
 
             {!dashboard.directories || dashboard.directories.length === 0 ? (
               <div className="text-center py-8">
@@ -465,7 +595,7 @@ if (stored) {
                   You haven't added any directories yet.
                 </p>
                 <Link
-                  href="/recruiter/directories/new"
+                  href="/recruiter/directory/new"
                   className="inline-block text-sm text-amber-600 hover:text-amber-700"
                 >
                   Add your first directory
@@ -510,7 +640,7 @@ if (stored) {
                         <td className="px-4 py-4 text-right">
                           {dir.isLiveEditable ? (
                             <Link
-                              href={`/recruiter/directories/${dir.id}/edit`}
+                              href={`/recruiter/directory/${dir.id}/edit`}
                               className="text-blue-600 hover:text-blue-700 font-medium"
                             >
                               Edit
@@ -595,10 +725,13 @@ if (stored) {
 
           {/* PACKAGE PURCHASES */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold mb-4 flex items-center gap-2 text-gray-900">
+            <h3 className="font-semibold mb-1 flex items-center gap-2 text-gray-900">
               <CreditCard size={18} className="text-blue-600" />
-              Package Purchases
+              Purchase History
             </h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Active plan: {dashboard.subscription?.displayPlanLabel ?? dashboard.subscription?.planLabel ?? "Free"}
+            </p>
 
             {!dashboard.recentPurchases || dashboard.recentPurchases.length === 0 ? (
               <div className="text-sm text-gray-500">

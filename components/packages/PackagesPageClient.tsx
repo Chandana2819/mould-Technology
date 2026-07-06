@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Loader2, X } from "lucide-react";
 import {
@@ -63,15 +63,27 @@ function PayButton({
   packageId,
   variant = "primary",
   disabled = false,
+  currentPlan,
+  activeUntil,
 }: {
   label: string;
   packageType: PackageType;
   packageId: string;
   variant?: "primary" | "secondary";
   disabled?: boolean;
+  currentPlan?: string | null;
+  activeUntil?: string | null;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const isCurrentPlan =
+    packageType === "SUBSCRIPTION" && currentPlan === packageId;
+
+  const isActiveMonthlyPackage =
+    packageType === "RECRUITMENT" &&
+    activeUntil &&
+    new Date(activeUntil) > new Date();
 
   const baseClass =
     variant === "primary"
@@ -79,6 +91,8 @@ function PayButton({
       : "bg-[#2a3d47] hover:bg-[#1f2d34] text-white";
 
   const handleClick = async () => {
+    if (isCurrentPlan || isActiveMonthlyPackage) return;
+
     setError("");
     setLoading(true);
 
@@ -107,7 +121,7 @@ function PayButton({
       <button
         type="button"
         onClick={handleClick}
-        disabled={loading || disabled}
+        disabled={loading || disabled || isCurrentPlan || !!isActiveMonthlyPackage}
         className={`rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-60 ${baseClass}`}
       >
         {loading ? (
@@ -115,6 +129,10 @@ function PayButton({
             <Loader2 className="h-4 w-4 animate-spin" />
             Processing...
           </span>
+        ) : isActiveMonthlyPackage ? (
+          `Active until ${new Date(activeUntil!).toLocaleDateString()}`
+        ) : isCurrentPlan ? (
+          "Current Plan"
         ) : (
           label
         )}
@@ -129,6 +147,34 @@ function PayButton({
 export default function PackagesPageClient() {
   const planKeys: PlanTier[] = ["free", "basic", "professional", "enterprise"];
   const bannerDurations = ["monthly", "quarterly", "annual"] as const;
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [recruitmentExpiresAt, setRecruitmentExpiresAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadCurrentPlan() {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/payments/my-packages`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentPlan(data.subscription?.plan ?? null);
+          setRecruitmentExpiresAt(data.subscription?.recruitmentExpiresAt ?? null);
+        }
+      } catch {
+        // ignore — user may not be logged in
+      }
+    }
+
+    loadCurrentPlan();
+  }, []);
 
   return (
     <main className="w-full bg-white">
@@ -202,6 +248,7 @@ export default function PackagesPageClient() {
                 label={plan.price === 0 ? "Get Started Free" : `Buy ${plan.name}`}
                 packageType="SUBSCRIPTION"
                 packageId={plan.id}
+                currentPlan={currentPlan}
               />
             ))}
           </div>
@@ -300,13 +347,16 @@ export default function PackagesPageClient() {
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
           <SectionHeading
             title="Recruitment Packages"
-            subtitle="Post jobs and reach qualified manufacturing talent"
+            subtitle="Monthly job posting package — active for 30 days, then your base plan applies again"
           />
 
           <div className="mx-auto max-w-md rounded-2xl border border-[#e5e9ef] bg-white p-8 text-center shadow-sm">
             {RECRUITMENT_PACKAGES.map((pkg) => (
-              <div key={pkg.name}>
+              <div key={pkg.id}>
                 <h3 className="text-xl font-semibold text-[#121213]">{pkg.name}</h3>
+                <p className="mt-2 text-sm text-[#616C74]">
+                  Valid for 30 days · adds 1 job posting slot
+                </p>
                 <p className="mt-3 text-3xl font-bold text-[#004d73]">
                   {formatInr(pkg.price)}
                 </p>
@@ -314,16 +364,24 @@ export default function PackagesPageClient() {
             ))}
             <div className="mt-8 flex flex-col items-center gap-3">
               <PayButton
-                label="Buy Job Posting"
+                label="Buy Monthly Job Posting"
                 packageType="RECRUITMENT"
                 packageId="single-job"
+                activeUntil={recruitmentExpiresAt}
               />
-              <Link
-                href="/recruiter/jobs/new"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                Or post a job after purchase →
-              </Link>
+              {recruitmentExpiresAt && new Date(recruitmentExpiresAt) > new Date() ? (
+                <p className="text-sm text-emerald-700">
+                  Active until {new Date(recruitmentExpiresAt).toLocaleDateString()}. After that your{" "}
+                  {currentPlan === "free" ? "Free" : currentPlan} plan applies.
+                </p>
+              ) : (
+                <Link
+                  href="/recruiter/jobs/new"
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Post a job after purchase →
+                </Link>
+              )}
             </div>
           </div>
         </div>

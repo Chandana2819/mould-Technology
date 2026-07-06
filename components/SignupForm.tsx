@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
+import RecruiterSubscriptionTerms from "@/components/RecruiterSubscriptionTerms"
 
 
 type Role = "candidate" | "recruiter"
@@ -29,11 +30,18 @@ export default function SignupForm() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [acceptedRecruiterTerms, setAcceptedRecruiterTerms] = useState(false)
 
 
   useEffect(() => {
     setRole(allowedRoles[0])
   }, [allowedRoles])
+
+  useEffect(() => {
+    if (role !== "recruiter") {
+      setAcceptedRecruiterTerms(false)
+    }
+  }, [role])
 
   /* ================= REGISTER ================= */
 
@@ -41,6 +49,12 @@ export default function SignupForm() {
     e.preventDefault()
     setError("")
     setSuccess("")
+
+    if (role === "recruiter" && !acceptedRecruiterTerms) {
+      setError("Please review and accept the company subscription terms.")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -222,10 +236,17 @@ export default function SignupForm() {
   </button>
 </div>
 
+            {role === "recruiter" && (
+              <RecruiterSubscriptionTerms
+                checked={acceptedRecruiterTerms}
+                onCheckedChange={setAcceptedRecruiterTerms}
+              />
+            )}
+
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (role === "recruiter" && !acceptedRecruiterTerms)}
               className="w-full h-[52px] bg-[#0073FF] text-white rounded-md font-semibold hover:bg-[#005fe0] transition disabled:opacity-60"
             >
               {loading ? "Sending OTP..." : "Create Account"}

@@ -181,15 +181,32 @@ text-black">
                 </ul>
               </div>
 
+              {/* Legal & Policies - Mobile */}
+              <div className="col-span-2 sm:col-span-1">
+                <h5 className="text-black text-base font-bold mb-4 uppercase tracking-wide">
+                  Legal &amp; Policies
+                </h5>
+                <ul className="space-y-2.5 text-sm">
+                  <li><Link href="/terms" className="hover:text-black transition-colors">Terms &amp; Conditions</Link></li>
+                  <li><Link href="/privacy-policy" className="hover:text-black transition-colors">Privacy Policy</Link></li>
+                  <li><Link href="/disclaimer" className="hover:text-black transition-colors">Disclaimer</Link></li>
+                  <li><Link href="/cookie-policy" className="hover:text-black transition-colors">Cookie Policy</Link></li>
+                  <li><Link href="/advertising-policy" className="hover:text-black transition-colors">Advertising Policy</Link></li>
+                  <li><Link href="/dpdp-compliance-notice" className="hover:text-black transition-colors">DPDP Act Compliance Notice</Link></li>
+                  <li><Link href="/copyright-ip-policy" className="hover:text-black transition-colors">Copyright &amp; IP Policy</Link></li>
+                  <li><Link href="/refund-cancellation-policy" className="hover:text-black transition-colors">Refund &amp; Cancellation Policy</Link></li>
+                </ul>
+              </div>
+
             </div>
 
           </div>
 
           {/* Desktop: Grid Layout */}
-          <div className="hidden lg:grid lg:grid-cols-12 gap-10 xl:gap-12">
+          <div className="hidden lg:grid lg:grid-cols-14 gap-10 xl:gap-12">
 
             {/* BRAND - Desktop */}
-            <div className="lg:col-span-4">
+            <div className="lg:col-span-3">
               <Link href="/" className="inline-block mb-6">
                 <Image
                   src="/images/tooling new34 (1).png"
@@ -337,6 +354,27 @@ text-black">
               </ul>
             </div>
 
+            {/* LEGAL & POLICIES - Desktop */}
+            <div className="lg:col-span-3">
+              <h5 className="text-black text-lg font-bold mb-6 uppercase tracking-wide">
+                Legal &amp; Policies
+              </h5>
+              <div className="grid grid-cols-2 gap-x-8 text-sm">
+                <ul className="space-y-3">
+                  <li><Link href="/terms" className="hover:text-black hover:translate-x-1 inline-block transition-all">Terms &amp; Conditions</Link></li>
+                  <li><Link href="/privacy-policy" className="hover:text-black hover:translate-x-1 inline-block transition-all">Privacy Policy</Link></li>
+                  <li><Link href="/disclaimer" className="hover:text-black hover:translate-x-1 inline-block transition-all">Disclaimer</Link></li>
+                  <li><Link href="/cookie-policy" className="hover:text-black hover:translate-x-1 inline-block transition-all">Cookie Policy</Link></li>
+                  <li><Link href="/advertising-policy" className="hover:text-black hover:translate-x-1 inline-block transition-all">Advertising Policy</Link></li>
+                </ul>
+                <ul className="space-y-3">
+                  <li><Link href="/dpdp-compliance-notice" className="hover:text-black hover:translate-x-1 inline-block transition-all">DPDP Act Compliance Notice</Link></li>
+                  <li><Link href="/copyright-ip-policy" className="hover:text-black hover:translate-x-1 inline-block transition-all">Copyright &amp; IP Policy</Link></li>
+                  <li><Link href="/refund-cancellation-policy" className="hover:text-black hover:translate-x-1 inline-block transition-all">Refund &amp; Cancellation Policy</Link></li>
+                </ul>
+              </div>
+            </div>
+
           </div>
 
         </div>
@@ -347,25 +385,25 @@ text-black">
 
 
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-xs sm:text-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm">
             
-            <Link 
+            {/* <Link 
               href="/terms" 
               className="hover:text-white transition-colors order-2 sm:order-1"
             >
               Terms & Agreements
-            </Link>
+            </Link> */}
 
             <p className="text-center order-1 sm:order-2">
               Copyright © 2026 <span className="font-semibold">Tooling Trends</span>. All rights reserved.
             </p>
 
-            <Link 
+            {/* <Link 
               href="/privacy-policy" 
               className="hover:text-white transition-colors order-3"
             >
               Privacy Policy
-            </Link>
+            </Link> */}
             
           </div>
         </div>

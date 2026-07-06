@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Loader2, X } from "lucide-react";
+import PackagesHero from "./PackagesHero";
 import {
   activateFreePlan,
   startPackagePayment,
@@ -178,23 +179,11 @@ export default function PackagesPageClient() {
 
   return (
     <main className="w-full bg-white">
-      <section className="relative bg-[#f8f9fb] py-16 text-center sm:py-24">
-        <h1 className="text-3xl font-semibold text-[#121213] sm:text-4xl">
-          Packages &amp; Pricing
-        </h1>
-        <div className="mt-2 text-sm text-[#616C74]">
-          <Link href="/" className="hover:text-blue-600">
-            Tooling Trends
-          </Link>
-          <span className="mx-2">→</span>
-          <span className="text-blue-600">Packages</span>
-        </div>
-        <p className="mx-auto mt-6 max-w-2xl px-6 text-sm leading-relaxed text-[#616C74] sm:text-base">
-          Grow your visibility on ToolingTrends.com with subscription plans,
-          banner advertising, sponsored content, and recruitment packages.
-          Secure checkout powered by Razorpay.
-        </p>
-      </section>
+            <PackagesHero
+        title="Packages & Pricing"
+        breadcrumbLabel="Packages"
+        description="Grow your visibility on ToolingTrends.com with subscription plans, banner advertising, sponsored content, and recruitment packages. Secure checkout powered by Razorpay."
+      />
 
       <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
@@ -389,3 +378,5 @@ export default function PackagesPageClient() {
     </main>
   );
 }
+
+

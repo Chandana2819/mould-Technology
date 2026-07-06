@@ -6,13 +6,9 @@ import * as Yup from "yup"
 import RichTextEditor from "@/components/RichTextField"
 import UploadBox from "@/components/UploadBox"
 import { useState, useEffect } from "react"
-import { loadGeo } from "@/lib/geo"
-import PackageLimitModal from "@/components/recruiter/PackageLimitModal"
-import {
-  fetchProductListingEligibility,
-  type ContentLimitEligibility,
-} from "@/lib/packageLimits"
+import { Country, State, City } from "country-state-city"
 
+/* ---------------- SLUG HELPER ---------------- */
 function slugify(text: string) {
   return text
     .toLowerCase()
@@ -60,31 +56,10 @@ export default function AddDirectoryPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
   const [uploadError, setUploadError] = useState("")
-  const [listingEligibility, setListingEligibility] =
-    useState<ContentLimitEligibility | null>(null)
-  const [showLimitModal, setShowLimitModal] = useState(false)
-
-  useEffect(() => {
-    async function loadEligibility() {
-      try {
-        const token = localStorage.getItem("token")
-        if (!token) return
-        setListingEligibility(await fetchProductListingEligibility(token))
-      } catch (error) {
-        console.error("Product listing eligibility error:", error)
-      }
-    }
-    loadEligibility()
-  }, [])
 
   /* ================= INDUSTRY CASCADE ================= */
   const [industryLevels, setIndustryLevels] = useState<any[][]>([])
   const [industrySelected, setIndustrySelected] = useState<number[]>([])
-  const [geo, setGeo] = useState<Awaited<ReturnType<typeof loadGeo>> | null>(null)
-
-  useEffect(() => {
-    loadGeo().then(setGeo).catch(console.error)
-  }, [])
 
   useEffect(() => {
     async function fetchIndustries() {
@@ -160,13 +135,12 @@ export default function AddDirectoryPage() {
   async function submit(values: any, { setSubmitting, setStatus }: any) {
     try {
       const token = localStorage.getItem("token")
-      const geoLib = geo ?? (await loadGeo())
 
-      const selectedCountry = geoLib.Country.getAllCountries().find(
+      const selectedCountry = Country.getAllCountries().find(
         c => c.isoCode === values.country
       )
 
-      const selectedState = geoLib.State.getStatesOfCountry(values.country).find(
+      const selectedState = State.getStatesOfCountry(values.country).find(
         s => s.isoCode === values.state
       )
 
@@ -193,44 +167,22 @@ export default function AddDirectoryPage() {
         }
       )
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        if (data.code === "PRODUCT_LISTING_LIMIT_REACHED") {
-          setShowLimitModal(true)
-          return
-        }
-        throw new Error(data.error || "Failed to submit directory")
-      }
+      if (!res.ok) throw new Error()
       router.push("/recruiter/dashboard")
-    } catch (err: any) {
-      setStatus(err.message || "Failed to submit directory")
+    } catch {
+      setStatus("Failed to submit directory")
     } finally {
       setSubmitting(false)
     }
   }
 
-  const countries = geo?.Country.getAllCountries() ?? []
-
-  if (!geo) {
-    return (
-      <div className="max-w-3xl mx-auto p-10">
-        <p className="text-gray-600">Loading form...</p>
-      </div>
-    )
-  }
+  const countries = Country.getAllCountries()
 
   return (
     <div className="max-w-3xl mx-auto p-10">
-      <h1 className="text-2xl font-bold mb-2">
+      <h1 className="text-2xl font-bold mb-6">
         Add Supplier Directory
       </h1>
-      {listingEligibility && (
-        <p className="text-sm text-gray-500 mb-6">
-          {listingEligibility.isUnlimited
-            ? "Your plan includes unlimited supplier directories."
-            : `Directory slots: ${listingEligibility.activeListings ?? 0} of ${listingEligibility.effectiveLimit ?? 0} used · ${listingEligibility.remaining ?? 0} remaining (Free: 5 · Basic: 25 · Pro/Enterprise: Unlimited). Add as many products as you need inside each directory.`}
-        </p>
-      )}
 
       <Formik
         initialValues={{
@@ -265,11 +217,11 @@ export default function AddDirectoryPage() {
         {({ isSubmitting, setFieldValue, values, status }) => {
 
           const states = values.country
-            ? geo.State.getStatesOfCountry(values.country)
+            ? State.getStatesOfCountry(values.country)
             : []
 
           const cities = values.state
-            ? geo.City.getCitiesOfState(values.country, values.state)
+            ? City.getCitiesOfState(values.country, values.state)
             : []
 
           return (
@@ -385,11 +337,6 @@ export default function AddDirectoryPage() {
 
   {/* PRODUCT SUPPLIES - full width */}
   <Section title="Product Supplies / Services">
-    <p className="text-sm text-gray-500 mb-3">
-      List the products or services in this directory. Package limits apply to
-      how many supplier directories you can create, not how many products each
-      contains.
-    </p>
     <FieldArray name="productSupplies">
       {({ push, remove }) => (
         <>
@@ -399,9 +346,7 @@ export default function AddDirectoryPage() {
               {i > 0 && <button type="button" onClick={() => remove(i)}>✕</button>}
             </div>
           ))}
-          <button type="button" onClick={() => push("")}>
-            + Add product
-          </button>
+          <button type="button" onClick={() => push("")}>+ Add product</button>
         </>
       )}
     </FieldArray>
@@ -465,16 +410,6 @@ export default function AddDirectoryPage() {
           )
         }}
       </Formik>
-
-      <PackageLimitModal
-        open={showLimitModal}
-        onClose={() => setShowLimitModal(false)}
-        title="Directory slot limit reached"
-        eligibility={listingEligibility}
-        usedLabel="Directories"
-        usedValue={listingEligibility?.activeListings}
-        limitValue={listingEligibility?.effectiveLimit}
-      />
     </div>
   )
 }

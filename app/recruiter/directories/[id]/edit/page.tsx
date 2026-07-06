@@ -4,11 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import RichTextEditor from "@/components/RichTextField"
 import UploadBox from "@/components/UploadBox"
-import { loadGeo } from "@/lib/geo"
-import {
-  fetchProductListingEligibility,
-  type ContentLimitEligibility,
-} from "@/lib/packageLimits"
+import { Country, State, City } from "country-state-city"
 
 export default function EditDirectoryPage() {
   const router = useRouter()
@@ -18,29 +14,9 @@ export default function EditDirectoryPage() {
   const [directory, setDirectory] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [listingEligibility, setListingEligibility] =
-    useState<ContentLimitEligibility | null>(null)
-  const [geo, setGeo] = useState<Awaited<ReturnType<typeof loadGeo>> | null>(null)
 
   const [industryLevels, setIndustryLevels] = useState<any[][]>([])
   const [industrySelected, setIndustrySelected] = useState<number[]>([])
-
-  useEffect(() => {
-    loadGeo().then(setGeo).catch(console.error)
-  }, [])
-
-  useEffect(() => {
-    async function loadEligibility() {
-      try {
-        const token = localStorage.getItem("token")
-        if (!token) return
-        setListingEligibility(await fetchProductListingEligibility(token))
-      } catch (error) {
-        console.error("Product listing eligibility error:", error)
-      }
-    }
-    loadEligibility()
-  }, [])
 
   useEffect(() => {
     async function fetchIndustries() {
@@ -107,10 +83,9 @@ export default function EditDirectoryPage() {
     try {
       setSaving(true)
       const token = localStorage.getItem("token")
-      const geoLib = geo ?? (await loadGeo())
 
-      const selectedCountry = geoLib.Country.getAllCountries().find(c => c.isoCode === directory.country)
-      const selectedState = geoLib.State.getStatesOfCountry(directory.country).find(s => s.isoCode === directory.state)
+      const selectedCountry = Country.getAllCountries().find(c => c.isoCode === directory.country)
+      const selectedState = State.getStatesOfCountry(directory.country).find(s => s.isoCode === directory.state)
       const location = [directory.city, selectedState?.name, selectedCountry?.name].filter(Boolean).join(", ")
 
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/suppliers/${directory.id}`, {
@@ -128,12 +103,12 @@ export default function EditDirectoryPage() {
     }
   }
 
-  if (loading || !geo) return <div className="p-10">Loading directory...</div>
+  if (loading) return <div className="p-10">Loading directory...</div>
   if (!directory) return <div className="p-10">Directory not found</div>
 
-  const states = directory.country ? geo.State.getStatesOfCountry(directory.country) : []
-  const cities = directory.state ? geo.City.getCitiesOfState(directory.country, directory.state) : []
-  const countries = geo.Country.getAllCountries()
+  const states = directory.country ? State.getStatesOfCountry(directory.country) : []
+  const cities = directory.state ? City.getCitiesOfState(directory.country, directory.state) : []
+  const countries = Country.getAllCountries()
 
   return (
     <div className="max-w-4xl mx-auto p-10 space-y-6">
@@ -283,11 +258,6 @@ export default function EditDirectoryPage() {
 
       {/* PRODUCT SUPPLIES */}
       <Section title="Product Supplies">
-        {listingEligibility && (
-          <p className="text-sm text-gray-500 mb-3">
-            Products inside your directory do not count toward your directory slot limit.
-          </p>
-        )}
         {directory.productSupplies.map((item: string, i: number) => (
           <div key={i} className="flex gap-2">
             <input
@@ -307,15 +277,7 @@ export default function EditDirectoryPage() {
             )}
           </div>
         ))}
-        <button
-          type="button"
-          onClick={() =>
-            setDirectory({
-              ...directory,
-              productSupplies: [...directory.productSupplies, ""],
-            })
-          }
-        >
+        <button type="button" onClick={() => setDirectory({ ...directory, productSupplies: [...directory.productSupplies, ""] })}>
           + Add product
         </button>
       </Section>

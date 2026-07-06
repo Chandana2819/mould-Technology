@@ -167,12 +167,6 @@ export async function activateFreePlan({
       return;
     }
 
-    if (data.alreadyActive) {
-      onSuccess?.();
-      window.location.href = "/recruiter/dashboard";
-      return;
-    }
-
     onSuccess?.();
     window.location.href = "/packages/success?plan=free";
   } catch {

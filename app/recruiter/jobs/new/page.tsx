@@ -1,10 +1,8 @@
 "use client"
 import dynamic from "next/dynamic"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import "react-quill-new/dist/quill.snow.css"
-import { fetchJobPostingEligibility, type JobPostingEligibility } from "@/lib/jobPosting"
 
 const ReactQuill = dynamic(() => import("react-quill-new"), {
   ssr: false,
@@ -26,30 +24,7 @@ export default function CreateJobPage() {
   })
 
   const [loading, setLoading] = useState(false)
-  const [checkingEligibility, setCheckingEligibility] = useState(true)
-  const [eligibility, setEligibility] = useState<JobPostingEligibility | null>(null)
   const [error, setError] = useState("")
-
-  useEffect(() => {
-    async function checkEligibility() {
-      try {
-        const token = localStorage.getItem("token")
-        if (!token) {
-          router.push("/login")
-          return
-        }
-
-        const data = await fetchJobPostingEligibility(token)
-        setEligibility(data)
-      } catch {
-        setError("Failed to verify your job posting allowance")
-      } finally {
-        setCheckingEligibility(false)
-      }
-    }
-
-    checkEligibility()
-  }, [router])
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -104,9 +79,6 @@ export default function CreateJobPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        if (data.code === "JOB_POSTING_LIMIT_REACHED") {
-          setEligibility(data.eligibility ?? null)
-        }
         setError(data.error || "Failed to create job")
         return
       }
@@ -134,48 +106,9 @@ export default function CreateJobPage() {
     <div className="max-w-3xl mx-auto px-6 py-16">
       <h1 className="text-2xl font-bold mb-6">Create Job</h1>
 
-      {checkingEligibility ? (
-        <p className="text-gray-600">Checking your job posting allowance...</p>
-      ) : !eligibility?.canPost ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <h2 className="text-lg font-semibold text-amber-900">
-            Job posting limit reached
-          </h2>
-          <p className="mt-2 text-sm text-amber-800">
-            {eligibility?.message ||
-              "You've reached your job posting limit. Upgrade your package to post more jobs."}
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/packages"
-              className="rounded-lg bg-[#004d73] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#003a59]"
-            >
-              View Packages
-            </Link>
-            <Link
-              href="/recruiter/dashboard"
-              className="rounded-lg border border-amber-200 bg-white px-5 py-2.5 text-sm font-semibold text-amber-900 hover:bg-amber-100"
-            >
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <>
-      {eligibility?.message && (
-        <p className="mb-4 text-sm text-gray-600">{eligibility.message}</p>
-      )}
-
       {error && (
         <div className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded">
           {error}
-          {eligibility?.upgradeRequired && (
-            <div className="mt-3">
-              <Link href="/packages" className="font-semibold text-[#004d73] hover:underline">
-                Upgrade package →
-              </Link>
-            </div>
-          )}
         </div>
       )}
 
@@ -275,8 +208,6 @@ export default function CreateJobPage() {
           {loading ? "Publishing..." : "Publish Job"}
         </button>
       </form>
-        </>
-      )}
     </div>
   )
 }

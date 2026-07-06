@@ -1,13 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import UploadBox from "@/components/UploadBox"
-import {
-  fetchArticlePostingEligibility,
-  type ContentLimitEligibility,
-} from "@/lib/packageLimits"
+
 
 export default function CreateRecruiterArticlePage() {
   const router = useRouter()
@@ -20,20 +16,6 @@ export default function CreateRecruiterArticlePage() {
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [eligibility, setEligibility] = useState<ContentLimitEligibility | null>(null)
-
-  useEffect(() => {
-    async function loadEligibility() {
-      try {
-        const token = localStorage.getItem("token")
-        if (!token) return
-        setEligibility(await fetchArticlePostingEligibility(token))
-      } catch (err) {
-        console.error(err)
-      }
-    }
-    loadEligibility()
-  }, [])
 
   /* ================= IMAGE UPLOAD ================= */
 
@@ -109,15 +91,6 @@ export default function CreateRecruiterArticlePage() {
     <div className="max-w-3xl mx-auto py-10">
       <h1 className="text-2xl font-bold mb-6">Create Article</h1>
 
-      {eligibility && !eligibility.canCreate && (
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p>{eligibility.message}</p>
-          <Link href="/packages" className="mt-2 inline-block font-medium text-[#004d73] hover:underline">
-            View packages →
-          </Link>
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <p className="text-red-500">{error}</p>}
 
@@ -175,8 +148,8 @@ export default function CreateRecruiterArticlePage() {
 
         <button
           type="submit"
-          disabled={loading || uploading || eligibility?.canCreate === false}
-          className="bg-black text-white px-6 py-2 rounded disabled:opacity-50"
+          disabled={loading || uploading}
+          className="bg-black text-white px-6 py-2 rounded"
         >
           {loading ? "Publishing..." : "Publish Article"}
         </button>

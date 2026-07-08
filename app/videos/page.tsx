@@ -3,82 +3,116 @@ import Link from "next/link"
 import type { Post } from "@/types/Post"
 import SupplierAds from "@/components/SupplierAds"
 
-export default async function VideosPage() {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/posts?limit=50`,
+const VIDEOS_PER_PAGE = 10
+const VIDEO_CATEGORY_SLUG = "video"
+
+interface Meta {
+  page: number
+  limit: number
+  total: number
+  pages: number
+}
+
+interface PostsResponse {
+  data: Post[]
+  meta: Meta
+}
+
+function getImageUrl(url?: string | null) {
+  if (!url) return "/placeholder.svg"
+  if (url.startsWith("http")) return url
+  return `${process.env.NEXT_PUBLIC_API_URL}${url}`
+}
+
+function formatDate(dateStr?: string | null) {
+  if (!dateStr) return ""
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+function getCategoryName(post: Post) {
+  return typeof post.category === "object" ? post.category?.name : post.category
+}
+
+function getCategorySlug(post: Post) {
+  return typeof post.category === "object"
+    ? post.category?.slug?.toLowerCase() ?? ""
+    : String(post.category || "").toLowerCase()
+}
+
+export default async function VideosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageParam } = await searchParams
+  const page = Math.max(1, Number(pageParam) || 1)
+
+  // ---- Fetch paginated video posts (server-side filtered by category) ----
+  const videosRes = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/posts?category=${VIDEO_CATEGORY_SLUG}&page=${page}&limit=${VIDEOS_PER_PAGE}`,
     { cache: "no-store" }
   )
 
-  const data = await res.json()
-  const posts: Post[] = data.data || data
-
-  const slugOf = (post: Post) =>
-    typeof post.category === "object"
-      ? post.category?.slug?.toLowerCase()
-      : String(post.category || "").toLowerCase()
-
-  const getImageUrl = (url?: string | null) => {
-    if (!url) return "/placeholder.svg"
-    if (url.startsWith("http")) return url
-    return `${process.env.NEXT_PUBLIC_API_URL}${url}`
+  if (!videosRes.ok) {
+    throw new Error(`Failed to fetch videos: ${videosRes.status}`)
   }
 
-  const whatsNewPosts = posts
-    .filter((p) => slugOf(p).includes("whatsnew"))
-    .slice(0, 5)
+  const videosData: PostsResponse = await videosRes.json()
+  const videoPosts = videosData.data ?? []
+  const meta = videosData.meta
 
-  const videoPosts = posts.filter(
-    (p) =>
-      slugOf(p).includes("video") ||
-      slugOf(p).includes("videos")
+  // ---- Fetch a separate batch for the "What's New" strip ----
+  const whatsNewRes = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/posts?limit=20`,
+    { cache: "no-store" }
   )
+  const whatsNewData: PostsResponse = await whatsNewRes.json()
+  const whatsNewPosts = (whatsNewData.data ?? [])
+    .filter((p) => getCategorySlug(p).includes("whatsnew"))
+    .slice(0, 5)
 
   return (
     <main className="bg-white">
-
       {/* ================= WHAT'S NEW STRIP ================= */}
-      <section className="border-b border-gray-200 bg-white">
-        <div className="max-w-[1320px] mx-auto px-6 py-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            {whatsNewPosts.map((post) => (
-              <Link key={post.id} href={`/post/${post.slug}`} className="group">
-                <div className="flex items-center gap-3 mb-1">
-                  <span className="bg-[#0072BC] text-white text-[10px] font-bold px-2 py-0.5 uppercase">
-                    {typeof post.category === "object"
-                      ? post.category?.name
-                      : post.category}
-                  </span>
-
-                  <span className="text-xs text-gray-500">
-                    {post.publishedAt
-                      ? new Date(post.publishedAt).toLocaleDateString("en-US", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })
-                      : ""}
-                  </span>
-                </div>
-
-                <p className="text-sm font-semibold text-gray-900 leading-snug group-hover:text-[#C70000]">
-                  {post.title}
-                </p>
-              </Link>
-            ))}
+      {whatsNewPosts.length > 0 && (
+        <section className="border-b border-gray-200 bg-white">
+          <div className="max-w-[1320px] mx-auto px-6 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+              {whatsNewPosts.map((post) => (
+                <Link key={post.id} href={`/post/${post.slug}`} className="group">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="bg-[#0072BC] text-white text-[10px] font-bold px-2 py-0.5 uppercase">
+                      {getCategoryName(post)}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {formatDate(post.publishedAt)}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 leading-snug group-hover:text-[#C70000]">
+                    {post.title}
+                  </p>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ================= VIDEOS ================= */}
       <section className="max-w-[1320px] mx-auto px-6 py-14">
-        <h1 className="text-[36px] font-bold text-[#003B5C] mb-10">
-          Videos
-        </h1>
+        <h1 className="text-[36px] font-bold text-[#003B5C] mb-10">Videos</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-12">
-
           {/* LEFT – VIDEO LIST */}
           <div className="space-y-12">
+            {videoPosts.length === 0 && (
+              <p className="text-gray-500 text-center py-20">No videos found.</p>
+            )}
+
             {videoPosts.map((post) => (
               <article
                 key={post.id}
@@ -93,8 +127,6 @@ export default async function VideosPage() {
                     className="object-cover rounded"
                     sizes="(max-width: 768px) 100vw, 260px"
                   />
-
-                  {/* PLAY ICON */}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div
                       className="
@@ -126,19 +158,10 @@ export default async function VideosPage() {
                 <div>
                   <div className="flex items-center gap-4 mb-2">
                     <span className="bg-gray-700 text-white text-xs font-bold px-2 py-1 uppercase">
-                      {typeof post.category === "object"
-                        ? post.category?.name
-                        : post.category}
+                      {getCategoryName(post)}
                     </span>
-
                     <span className="text-xs text-gray-500">
-                      {post.publishedAt
-                        ? new Date(post.publishedAt).toLocaleDateString("en-US", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })
-                        : ""}
+                      {formatDate(post.publishedAt)}
                     </span>
                   </div>
 
@@ -148,9 +171,7 @@ export default async function VideosPage() {
 
                   <p className="text-gray-600 text-[15px] leading-relaxed mb-3">
                     {post.excerpt ||
-                      post.content
-                        ?.replace(/<[^>]+>/g, "")
-                        .slice(0, 160) + "..."}
+                      post.content?.replace(/<[^>]+>/g, "").slice(0, 160) + "..."}
                   </p>
 
                   <Link
@@ -164,24 +185,129 @@ export default async function VideosPage() {
             ))}
 
             {/* ================= PAGINATION ================= */}
-            <div className="flex items-center gap-2 pt-6">
-              <button className="border px-3 py-2 text-sm">‹</button>
-              <button className="border px-3 py-2 bg-[#003B5C] text-white text-sm">1</button>
-              <button className="border px-3 py-2 text-sm">2</button>
-              <button className="border px-3 py-2 text-sm">3</button>
-              <button className="border px-3 py-2 text-sm">4</button>
-              <button className="border px-3 py-2 text-sm">5</button>
-              <button className="border px-3 py-2 text-sm">›</button>
-            </div>
+            {meta && meta.pages >= 1 && (
+              <Pagination currentPage={meta.page} totalPages={meta.pages} />
+            )}
           </div>
 
           {/* RIGHT – ADS */}
           <aside className="space-y-6 sticky top-24">
             <SupplierAds />
           </aside>
-
         </div>
       </section>
     </main>
+  )
+}
+
+// ================= PAGINATION UI ================= //
+
+function Pagination({
+  currentPage,
+  totalPages,
+}: {
+  currentPage: number
+  totalPages: number
+}) {
+  const maxVisible = 5
+  let start = Math.max(1, currentPage - Math.floor(maxVisible / 2))
+  let end = Math.min(totalPages, start + maxVisible - 1)
+  start = Math.max(1, end - maxVisible + 1)
+
+  const pageNumbers = Array.from(
+    { length: end - start + 1 },
+    (_, i) => start + i
+  )
+
+  return (
+    <nav
+      aria-label="Videos pagination"
+      className="flex items-center justify-center gap-1.5 pt-10"
+    >
+      <PageLink page={currentPage - 1} disabled={currentPage <= 1} ariaLabel="Previous page">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </PageLink>
+
+      {start > 1 && (
+        <>
+          <PageLink page={1}>1</PageLink>
+          {start > 2 && (
+            <span className="w-9 text-center text-sm text-gray-400 select-none">…</span>
+          )}
+        </>
+      )}
+
+      {pageNumbers.map((p) => (
+        <PageLink key={p} page={p} active={p === currentPage}>
+          {p}
+        </PageLink>
+      ))}
+
+      {end < totalPages && (
+        <>
+          {end < totalPages - 1 && (
+            <span className="w-9 text-center text-sm text-gray-400 select-none">…</span>
+          )}
+          <PageLink page={totalPages}>{totalPages}</PageLink>
+        </>
+      )}
+
+      <PageLink page={currentPage + 1} disabled={currentPage >= totalPages} ariaLabel="Next page">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </PageLink>
+    </nav>
+  )
+}
+
+function PageLink({
+  page,
+  active,
+  disabled,
+  ariaLabel,
+  children,
+}: {
+  page: number
+  active?: boolean
+  disabled?: boolean
+  ariaLabel?: string
+  children: React.ReactNode
+}) {
+  const base =
+    "flex items-center justify-center w-9 h-9 rounded-md text-sm font-medium transition-colors duration-150"
+
+  if (disabled) {
+    return (
+      <span
+        aria-hidden="true"
+        className={`${base} border border-gray-200 text-gray-300 cursor-not-allowed`}
+      >
+        {children}
+      </span>
+    )
+  }
+
+  if (active) {
+    return (
+      <span
+        aria-current="page"
+        className={`${base} bg-[#003B5C] text-white shadow-sm`}
+      >
+        {children}
+      </span>
+    )
+  }
+
+  return (
+    <Link
+      href={`/videos?page=${page}`}
+      aria-label={ariaLabel}
+      className={`${base} border border-gray-200 text-gray-600 hover:border-[#003B5C] hover:text-[#003B5C] hover:bg-blue-50`}
+    >
+      {children}
+    </Link>
   )
 }

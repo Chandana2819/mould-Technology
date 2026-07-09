@@ -61,11 +61,13 @@ useEffect(() => {
         `${process.env.NEXT_PUBLIC_API_URL}/api/jobs`
       );
 
-      const jobs = await jobsRes.json();
+     const jobsData = await jobsRes.json();
 
-      setOtherJobs(
-        jobs.filter((j: any) => j.slug !== slug).slice(0, 5)
-      );
+const jobs = jobsData.jobs || [];
+
+setOtherJobs(
+  jobs.filter((j: any) => j.slug !== slug).slice(0, 5)
+);
     } catch (err) {
       console.error(err);
     } finally {

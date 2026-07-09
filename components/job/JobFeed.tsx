@@ -3,6 +3,15 @@
 import { useEffect, useState } from "react"
 import { MapPin, Briefcase, Clock, Users, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 type Job = {
   id: number
@@ -12,7 +21,7 @@ type Job = {
   location: string
   createdAt: string
   employmentType?: string
-   views: number
+  views: number
   Company?: {
     name: string
     slug: string
@@ -22,55 +31,72 @@ type Job = {
 export default function JobFeed({ isPublic = false }: { isPublic?: boolean }) {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const router = useRouter()
 
   useEffect(() => {
     async function loadJobs() {
+      setLoading(true)
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/jobs`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/jobs?page=${currentPage}&limit=10`,
         { cache: "no-store" }
       )
       const data = await res.json()
-      setJobs(Array.isArray(data) ? data : data.jobs || [])
+      
+      // Handle paginated response
+      if (data.jobs) {
+        setJobs(data.jobs)
+        setTotalPages(data.pagination?.totalPages || 1)
+      } else {
+        setJobs(Array.isArray(data) ? data : [])
+        setTotalPages(1)
+      }
       setLoading(false)
     }
 
     loadJobs()
-  }, [])
+  }, [currentPage])
 
-  // ✅ ADD THIS HERE
-  function stripHtml(html: string) {
+  // Enhanced function to clean HTML and create preview
+  function getDescriptionPreview(html: string, maxLength: number = 180) {
+    if (!html) return ""
+    
     const temp = document.createElement("div")
     temp.innerHTML = html
-    return temp.textContent || temp.innerText || ""
+
+    const text = (temp.textContent || temp.innerText || "")
+      .replace(/\s+/g, " ")
+      .trim()
+
+    return text.length > maxLength ? text.slice(0, maxLength) + "..." : text
   }
 
-function getPostedText(createdAt: string) {
-  const created = new Date(createdAt);
-  const now = new Date();
+  function getPostedText(createdAt: string) {
+    const created = new Date(createdAt);
+    const now = new Date();
 
-  const diffMs = now.getTime() - created.getTime();
+    const diffMs = now.getTime() - created.getTime();
 
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
 
-  if (diffMinutes < 60) {
-    return "Posted just now";
+    if (diffMinutes < 60) {
+      return "Posted just now";
+    }
+
+    if (diffHours < 24) {
+      return `Posted ${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    }
+
+    if (diffDays === 1) {
+      return "Posted yesterday";
+    }
+
+    return `Posted ${diffDays} days ago`;
   }
 
-  if (diffHours < 24) {
-    return `Posted ${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-  }
-
-  if (diffDays === 1) {
-    return "Posted yesterday";
-  }
-
-  return `Posted ${diffDays} days ago`;
-}
-
-  /** 🔐 Apply is protected */
   function handleApply(slug: string) {
     const user = JSON.parse(localStorage.getItem("user") || "{}")
 
@@ -87,82 +113,109 @@ function getPostedText(createdAt: string) {
   }
 
   return (
-    <main className="space-y-4">
-      {jobs.map(job => (
-        <div key={job.id} className="bg-white rounded-md shadow-sm p-5">
-
-          {/* COMPANY */}
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <Briefcase size={18} className="text-blue-600" />
+    <>
+      <main className="space-y-4">
+        {jobs.map(job => (
+          <div key={job.id} className="bg-white rounded-md shadow-sm p-5">
+            {/* COMPANY */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <Briefcase size={18} className="text-blue-600" />
+              </div>
+              <div>
+                <p
+                  onClick={() => {
+                    if (job.Company?.slug) {
+                      router.push(`/company/${job.Company.slug}`)
+                    }
+                  }}
+                  className="font-semibold text-sm cursor-pointer text-blue-600 hover:underline"
+                >
+                  {job.Company?.name || "Company"}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {job.employmentType || "Full-time"}
+                </p>
+              </div>
             </div>
-            <div>
-             <p
-  onClick={() => {
-    if (job.Company?.slug) {
-      router.push(`/company/${job.Company.slug}`)
-    }
-  }}
-  className="font-semibold text-sm cursor-pointer text-blue-600 hover:underline"
->
-  {job.Company?.name || "Company"}
-</p>
-              <p className="text-xs text-gray-500">
-                {job.employmentType || "Full-time"}
-              </p>
+
+            {/* TITLE */}
+            <h2 className="font-semibold mb-1">
+              {job.title}
+            </h2>
+
+            {/* META */}
+            <div className="flex flex-wrap gap-4 text-xs text-gray-500 mb-3">
+              <span className="flex items-center gap-1">
+                <MapPin size={12} />
+                {job.location}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock size={12} />
+                {getPostedText(job.createdAt)}
+              </span>
+              <span className="flex items-center gap-1">
+                <Users size={12} />
+                Actively hiring
+              </span>
+              <span className="flex items-center gap-1">
+                <Eye className="w-4 h-4" />
+                {job.views ?? 0} Views
+              </span>
+            </div>
+
+            {/* DESCRIPTION - Updated with clean preview */}
+            <p className="text-sm text-gray-700 mb-4">
+              {getDescriptionPreview(job.description || "", 180)}
+            </p>
+
+            {/* ACTIONS */}
+            <div className="flex gap-4 text-sm">
+              <button
+                onClick={() => router.push(`/jobs/${job.slug}`)}
+                className="text-blue-600 font-medium hover:underline"
+              >
+                View job
+              </button>
             </div>
           </div>
+        ))}
+      </main>
 
-          {/* TITLE */}
-          <h2 className="font-semibold mb-1">
-            {job.title}
-          </h2>
-
-          {/* META */}
-          <div className="flex flex-wrap gap-4 text-xs text-gray-500 mb-3">
-            <span className="flex items-center gap-1">
-              <MapPin size={12} />
-              {job.location}
-            </span>
-            <span className="flex items-center gap-1">
-  <Clock size={12} />
-  {getPostedText(job.createdAt)}
-</span>
-            <span className="flex items-center gap-1">
-              <Users size={12} />
-              Actively hiring
-            </span>
-            <span className="flex items-center gap-1">
-    <Eye className="w-4 h-4" />
-    {job.views ?? 0} Views
-  </span>
-          </div>
-
-          {/* DESCRIPTION */}
-    <p className="text-sm text-gray-700 line-clamp-3 mb-4">
-  {stripHtml(job.description || "")}
-</p>
-
-          {/* ACTIONS */}
-          <div className="flex gap-4 text-sm">
-            {/* ✅ PUBLIC */}
-            <button
-              onClick={() => router.push(`/jobs/${job.slug}`)}
-              className="text-blue-600 font-medium hover:underline"
-            >
-              View job
-            </button>
-
-            {/* 🔐 PROTECTED */}
-            {/* <button
-              onClick={() => handleApply(job.slug)}
-              className="text-gray-600 hover:text-blue-600 font-medium"
-            >
-              Apply
-            </button> */}
-          </div>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-8 flex justify-center">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    onClick={() => setCurrentPage(page)}
+                    isActive={page === currentPage}
+                    className="cursor-pointer"
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
-      ))}
-    </main>
+      )}
+    </>
   )
 }

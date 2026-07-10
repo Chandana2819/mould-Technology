@@ -1,5 +1,4 @@
 import CompanyArticlesCarousel from "@/components/CompanyArticlesCarousel"
-import VideoGallery from "@/components/VideoGallery"
 import SocialLinksTracker from "@/components/SocialLinksTracker"
 import {
   LucideFacebook,
@@ -12,6 +11,7 @@ import {
   Mail,
 } from "lucide-react"
 import ClaimCompanyBanner from "@/components/ClaimCompanyBanner"
+import GalleryTabs from "@/components/GalleryTabs" // 👈 NEW IMPORT
 
 /* ================= TYPES ================= */
 
@@ -43,7 +43,7 @@ type Supplier = {
     twitter?: string
     youtube?: string
   }
-  company?: {
+  Company?: {
     id: number
     name: string
     location?: string
@@ -89,7 +89,7 @@ export default async function SupplierShowroomPage({
     articles = await articlesRes.json()
   }
 
-  const websiteLink = supplier.website || supplier.company?.website
+  const websiteLink = supplier.website || supplier.Company?.website
 
   /* ================= UI ================= */
 
@@ -116,8 +116,6 @@ export default async function SupplierShowroomPage({
             {supplier.name}
           </h1>
 
-        
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-14 mt-12">
 
             {/* LEFT SIDEBAR */}
@@ -131,20 +129,13 @@ export default async function SupplierShowroomPage({
                 />
               )}
 
-                {/* LOCATION */}
-          {supplier.company?.location && (
-            <p className="flex items-center justify-center gap-2 text-gray-500 mt-2">
-              <MapPin size={16} />
-              {supplier.company.location}
-            </p>
-          )}
-
-          {/* INDUSTRY */}
-          {/* {supplier.company?.industry && (
-            <p className="text-center text-sm text-gray-400 mt-1">
-             Industary {supplier.company.industry}
-            </p>
-          )} */}
+              {/* LOCATION */}
+              {supplier.Company?.location && (
+                <p className="flex items-center justify-center gap-2 text-gray-500 mt-2">
+                  <MapPin size={16} />
+                  {supplier.Company.location}
+                </p>
+              )}
 
               {/* CONTACT INFO */}
               <div className="text-sm space-y-3">
@@ -232,17 +223,12 @@ export default async function SupplierShowroomPage({
             </section>
           </div>
 
-          {/* Update Your Listing  */}
+          {/* Update Your Listing */}
           <ClaimCompanyBanner />
 
-
-          {/* VIDEO GALLERY */}
-          {supplier.videoGallery && supplier.videoGallery.length > 0 && (
-            <>
-              <hr className="my-12" />
-              <VideoGallery videos={supplier.videoGallery} />
-            </>
-          )}
+          {/* ====== GALLERY TABS - REPLACES VIDEO GALLERY ====== */}
+          <hr className="my-12" />
+          <GalleryTabs videoGallery={supplier.videoGallery} />
 
           {/* ARTICLES */}
           {articles.length > 0 && (

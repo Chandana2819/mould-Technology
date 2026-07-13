@@ -40,6 +40,27 @@ const DirectorySchema = Yup.object({
   videoGallery: Yup.array().of(Yup.string().url()),
   productSupplies: Yup.array().of(Yup.string().min(2)),
 
+  productGallery: Yup.array().of(Yup.string().url()),
+companyGallery: Yup.array().of(Yup.string().url()),
+factoryGallery: Yup.array().of(Yup.string().url()),
+
+companyBrochure: Yup.array().of(Yup.string().url()),
+certifications: Yup.array().of(Yup.string().url()),
+
+brandsRepresented: Yup.array().of(Yup.string()),
+
+industriesServed: Yup.array().of(Yup.string()),
+
+exportMarkets: Yup.array().of(Yup.string()),
+
+manufacturingCapabilities: Yup.string(),
+
+machineryList: Yup.string(),
+
+qualityStandards: Yup.string(),
+
+enableInquiryForm: Yup.boolean(),
+
   socialLinks: Yup.object({
     facebook: Yup.string().url().nullable(),
     linkedin: Yup.string().url().nullable(),
@@ -250,6 +271,23 @@ export default function AddDirectoryPage() {
           tradeNames: [""],
           videoGallery: [""],
           productSupplies: [""],
+
+          productGallery: [""],
+companyGallery: [""],
+factoryGallery: [""],
+
+companyBrochure: [""],
+certifications: [""],
+
+brandsRepresented: [""],
+industriesServed: [""],
+exportMarkets: [""],
+
+manufacturingCapabilities: "",
+machineryList: "",
+qualityStandards: "",
+
+enableInquiryForm: true,
           socialLinks: {
             facebook: "",
             linkedin: "",
@@ -456,6 +494,247 @@ export default function AddDirectoryPage() {
       )}
     </FieldArray>
   </Section>
+
+  <Section title="Product Gallery">
+  <FieldArray name="productGallery">
+    {({ push, remove }) => (
+      <>
+        {values.productGallery.map((_: any, i: number) => (
+          <div key={i} className="flex gap-2">
+            <Field
+              name={`productGallery.${i}`}
+              className="input flex-1"
+              placeholder="Image URL"
+            />
+            {i > 0 && (
+              <button type="button" onClick={() => remove(i)}>
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={() => push("")}>
+          + Add Product Image
+        </button>
+      </>
+    )}
+  </FieldArray>
+</Section>
+
+<Section title="Company Gallery">
+  <FieldArray name="companyGallery">
+    {({ push, remove }) => (
+      <>
+        {values.companyGallery.map((_: any, i: number) => (
+          <div key={i} className="flex gap-2">
+            <Field
+              name={`companyGallery.${i}`}
+              className="input flex-1"
+            />
+            {i > 0 && (
+              <button type="button" onClick={() => remove(i)}>
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={() => push("")}>
+          + Add Company Image
+        </button>
+      </>
+    )}
+  </FieldArray>
+</Section>
+
+<Section title="Factory Gallery">
+  <FieldArray name="factoryGallery">
+    {({ push, remove }) => (
+      <>
+        {values.factoryGallery.map((_: any, i: number) => (
+          <div key={i} className="flex gap-2">
+            <Field
+              name={`factoryGallery.${i}`}
+              className="input flex-1"
+            />
+            {i > 0 && (
+              <button type="button" onClick={() => remove(i)}>
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={() => push("")}>
+          + Add Factory Image
+        </button>
+      </>
+    )}
+  </FieldArray>
+</Section> 
+
+<Section title="Company Brochure">
+  <FieldArray name="companyBrochure">
+    {({ push, remove }) => (
+      <>
+        {values.companyBrochure.map((_: any, i: number) => (
+          <div key={i} className="flex gap-2">
+            <Field
+              name={`companyBrochure.${i}`}
+              className="input flex-1"
+              placeholder="PDF URL"
+            />
+            {i > 0 && (
+              <button type="button" onClick={() => remove(i)}>
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={() => push("")}>
+          + Add Brochure
+        </button>
+      </>
+    )}
+  </FieldArray>
+</Section>  
+
+<Section title="Certifications">
+  <FieldArray name="certifications">
+    {({ push, remove }) => (
+      <>
+        {values.certifications.map((_: any, i: number) => (
+          <div key={i} className="flex gap-2">
+            <Field
+              name={`certifications.${i}`}
+              className="input flex-1"
+            />
+            {i > 0 && (
+              <button type="button" onClick={() => remove(i)}>
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={() => push("")}>
+          + Add Certification
+        </button>
+      </>
+    )}
+  </FieldArray>
+</Section>  
+<Section title="Brands Represented">
+  <FieldArray name="brandsRepresented">
+    {({ push, remove }) => (
+      <>
+        {values.brandsRepresented.map((_: any, i: number) => (
+          <div key={i} className="flex gap-2">
+            <Field
+              name={`brandsRepresented.${i}`}
+              className="input flex-1"
+            />
+            {i > 0 && (
+              <button type="button" onClick={() => remove(i)}>
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={() => push("")}>
+          + Add Brand
+        </button>
+      </>
+    )}
+  </FieldArray>
+</Section>
+
+<Section title="Industries Served">
+  <FieldArray name="industriesServed">
+    {({ push, remove }) => (
+      <>
+        {values.industriesServed.map((_: any, i: number) => (
+          <div key={i} className="flex gap-2">
+            <Field
+              name={`industriesServed.${i}`}
+              className="input flex-1"
+            />
+            {i > 0 && (
+              <button type="button" onClick={() => remove(i)}>
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={() => push("")}>
+          + Add Industry
+        </button>
+      </>
+    )}
+  </FieldArray>
+</Section>  
+
+<Section title="Export Markets">
+  <FieldArray name="exportMarkets">
+    {({ push, remove }) => (
+      <>
+        {values.exportMarkets.map((_: any, i: number) => (
+          <div key={i} className="flex gap-2">
+            <Field
+              name={`exportMarkets.${i}`}
+              className="input flex-1"
+            />
+            {i > 0 && (
+              <button type="button" onClick={() => remove(i)}>
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={() => push("")}>
+          + Add Country
+        </button>
+      </>
+    )}
+  </FieldArray>
+</Section>  
+
+<div>
+  <label className="label">Manufacturing Capabilities</label>
+  <Field
+    as="textarea"
+    rows={5}
+    name="manufacturingCapabilities"
+    className="input"
+  />
+</div>  
+
+<div>
+  <label className="label">Machinery List</label>
+  <Field
+    as="textarea"
+    rows={5}
+    name="machineryList"
+    className="input"
+  />
+</div>  
+
+<div>
+  <label className="label">Quality Standards</label>
+  <Field
+    as="textarea"
+    rows={5}
+    name="qualityStandards"
+    className="input"
+  />
+</div>  
+
+<div className="flex items-center gap-3">
+  <Field
+    type="checkbox"
+    name="enableInquiryForm"
+  />
+  <label>Enable Inquiry Form</label>
+</div>
+
+
 
   {status && <p className="text-red-600 text-sm">{status}</p>}
 

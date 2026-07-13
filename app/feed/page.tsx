@@ -113,7 +113,7 @@ export default function PublicFeedPage() {
                   <Link
                     href={
                       role === "recruiter"
-                        ? "/recruiter/jobs/create"
+                        ? "/recruiter/jobs/new"
                         : "/signup?role=recruiter"
                     }
                     className="inline-flex items-center justify-center bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition"

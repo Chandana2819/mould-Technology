@@ -53,6 +53,7 @@ type Article = {
 }
 
 type Supplier = {
+  productCatalogues: string[] | undefined
   planTier?: "free" | "basic" | "professional" | "enterprise"
   promotionBanners?: string[]
 
@@ -63,7 +64,7 @@ type Supplier = {
   description: string
   website?: string
   logoUrl?: string
-  coverImageUrl?: string
+  coverImageUrl?: string[]
   phoneNumber?: string
   email?: string
   tradeNames?: string[]
@@ -326,6 +327,7 @@ export default async function SupplierShowroomPage({
           productGallery={supplier.productGallery}
           companyGallery={supplier.companyGallery}
           factoryGallery={supplier.factoryGallery}
+          productCatalogues={supplier.productCatalogues}
           isPaid={isPaid}
         />
 

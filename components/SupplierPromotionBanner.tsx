@@ -1,11 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import {
     BadgeCheck,
     MapPin,
     Phone,
     Mail,
     Globe,
+    MessageCircle,
+    ChevronLeft,
+    ChevronRight,
     LucideFacebook,
     LucideLinkedin,
     LucideTwitter,
@@ -18,6 +22,7 @@ type SocialLinks = {
     linkedin?: string;
     twitter?: string;
     youtube?: string;
+    whatsapp?: string;
 };
 
 type Props = {
@@ -25,8 +30,8 @@ type Props = {
     name: string;
     location?: string;
     logoUrl?: string;
-    coverImageUrl?: string;
-    tagline?: string;
+    coverImageUrl?: string[];  // ✅ Array of strings
+    tagline?: string;  // ✅ Add tagline prop
     tradeNames?: string[];
     phoneNumber?: string;
     email?: string;
@@ -82,6 +87,65 @@ function ContactItem({
     );
 }
 
+function CoverImageCarousel({ images, name }: { images: string[]; name: string }) {
+    const [index, setIndex] = useState(0);
+
+    if (images.length === 0) return null;
+
+    if (images.length === 1) {
+        return (
+            <img
+                src={images[0]}
+                alt={name}
+                className="absolute inset-0 w-full h-full object-cover"
+            />
+        );
+    }
+
+    const goPrev = () => setIndex((i) => (i === 0 ? images.length - 1 : i - 1));
+    const goNext = () => setIndex((i) => (i === images.length - 1 ? 0 : i + 1));
+
+    return (
+        <>
+            <img
+                src={images[index]}
+                alt={`${name} cover ${index + 1}`}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+            />
+
+            <button
+                type="button"
+                onClick={goPrev}
+                aria-label="Previous cover image"
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/40 hover:bg-black/60 text-white p-1.5 transition"
+            >
+                <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+                type="button"
+                onClick={goNext}
+                aria-label="Next cover image"
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/40 hover:bg-black/60 text-white p-1.5 transition"
+            >
+                <ChevronRight className="w-5 h-5" />
+            </button>
+
+            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex gap-1.5">
+                {images.map((_, i) => (
+                    <button
+                        key={i}
+                        type="button"
+                        aria-label={`Go to cover image ${i + 1}`}
+                        onClick={() => setIndex(i)}
+                        className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/50"
+                            }`}
+                    />
+                ))}
+            </div>
+        </>
+    );
+}
+
 export default function SupplierPromotionBanner({
     planTier,
     name,
@@ -100,31 +164,25 @@ export default function SupplierPromotionBanner({
     const tier = TIER_STYLES[planTier];
     const social = socialLinks || {};
     const hasSocial =
-        social.facebook || social.linkedin || social.twitter || social.youtube;
+        !!(social.facebook || social.linkedin || social.twitter || social.youtube);
     const hasContactRow =
-        phoneNumber || email || website || (tradeNames && tradeNames.length > 0);
+        !!(phoneNumber || email || website || social.whatsapp || (tradeNames && tradeNames.length > 0));
+
+    // ✅ Safely handle possibly undefined coverImageUrl
+    const images = (coverImageUrl || []).filter(Boolean);
 
     return (
         <div
             className={`w-full overflow-hidden rounded-2xl border ${tier.accent} shadow-xl bg-white mb-10`}
         >
-            {/* HERO */}
             <div
                 className={`relative min-h-[280px] md:min-h-[360px] bg-gradient-to-br ${tier.gradient}`}
             >
-                {coverImageUrl && (
-                    <img
-                        src={coverImageUrl}
-                        alt={name}
-                        className="absolute inset-0 w-full h-full object-cover"
-                    />
-                )}
+                <CoverImageCarousel images={images} name={name} />
 
-                {/* Scrims */}
                 <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
                 <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent" />
 
-                {/* Verified Badge */}
                 <div className="absolute top-6 left-6">
                     <div
                         className={`inline-flex items-center gap-2 rounded-full px-4 py-2 font-semibold shadow-lg ${tier.badgeBg} ${tier.badgeText}`}
@@ -134,10 +192,8 @@ export default function SupplierPromotionBanner({
                     </div>
                 </div>
 
-                {/* Bottom overlay: identity + contact + social all live here */}
                 <div className="absolute inset-x-0 bottom-0 p-6 md:p-8 text-white">
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-                        {/* Identity */}
                         <div className="flex items-end gap-4">
                             {logoUrl && (
                                 <img
@@ -164,7 +220,6 @@ export default function SupplierPromotionBanner({
                             </div>
                         </div>
 
-                        {/* Social */}
                         {hasSocial && (
                             <div className="flex gap-3 shrink-0">
                                 {social.facebook && (
@@ -207,7 +262,6 @@ export default function SupplierPromotionBanner({
                         )}
                     </div>
 
-                    {/* Contact row */}
                     {hasContactRow && (
                         <div className="flex flex-wrap gap-x-6 gap-y-2 mt-5 pt-5 border-t border-white/20">
                             {phoneNumber && (
@@ -229,6 +283,22 @@ export default function SupplierPromotionBanner({
                                         className="hover:underline"
                                     >
                                         {website}
+                                    </a>
+                                </ContactItem>
+                            )}
+                            {social.whatsapp && (
+                                <ContactItem icon={<MessageCircle className="w-3.5 h-3.5" />}>
+                                    <a
+                                        href={
+                                            social.whatsapp.startsWith("http")
+                                                ? social.whatsapp
+                                                : `https://wa.me/${social.whatsapp.replace(/[^\d]/g, "")}`
+                                        }
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="hover:underline"
+                                    >
+                                        WhatsApp
                                     </a>
                                 </ContactItem>
                             )}

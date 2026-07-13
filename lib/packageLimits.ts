@@ -11,6 +11,9 @@ export type ContentLimitEligibility = {
   periodLabel?: string;
   upgradeRequired?: boolean;
   message?: string;
+
+  maxCoverImages?: number
+  allowWhatsapp?: boolean
 };
 
 export async function fetchArticlePostingEligibility(

@@ -11,11 +11,6 @@ import {
 } from "@/lib/packageLimits"
 
 /* ---------------- SHARED FILE UPLOAD HELPER ---------------- */
-/**
- * Uploads a single file to the existing /api/upload endpoint and
- * returns the resulting URL. Reused by logo upload, galleries and
- * document uploads so we only have one place that talks to the API.
- */
 async function uploadFile(file: File): Promise<string> {
   const formData = new FormData()
   formData.append("image", file)
@@ -35,12 +30,17 @@ export default function EditDirectoryPage() {
   const [directory, setDirectory] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
+  const [uploadingCatalogue, setUploadingCatalogue] = useState(false)
   const [listingEligibility, setListingEligibility] =
     useState<ContentLimitEligibility | null>(null)
   const [geo, setGeo] = useState<Awaited<ReturnType<typeof loadGeo>> | null>(null)
 
   const [industryLevels, setIndustryLevels] = useState<any[][]>([])
   const [industrySelected, setIndustrySelected] = useState<number[]>([])
+
+  const maxCoverImages = listingEligibility?.maxCoverImages ?? 0
+  const allowWhatsapp = listingEligibility?.allowWhatsapp ?? false
 
   useEffect(() => {
     loadGeo().then(setGeo).catch(console.error)
@@ -78,6 +78,16 @@ export default function EditDirectoryPage() {
           { headers: { Authorization: `Bearer ${token}` } }
         )
         const data = await res.json()
+
+        let coverImages = []
+        if (Array.isArray(data.coverImageUrl)) {
+          coverImages = data.coverImageUrl
+        } else if (typeof data.coverImageUrl === 'string' && data.coverImageUrl) {
+          coverImages = [data.coverImageUrl]
+        } else {
+          coverImages = [""]
+        }
+
         setDirectory({
           ...data,
           tradeNames: data.tradeNames || [""],
@@ -90,10 +100,13 @@ export default function EditDirectoryPage() {
           address: data.address || "",
           industryId: data.industryId || "",
 
-          // ---- NEW FIELDS ----
+          coverImages: coverImages,
+
           productGallery: data.productGallery || [""],
           companyGallery: data.companyGallery || [""],
           factoryGallery: data.factoryGallery || [""],
+
+          productCatalogues: data.productCatalogues || [""],
 
           companyBrochure: data.companyBrochure || [""],
           certifications: data.certifications || [""],
@@ -134,10 +147,6 @@ export default function EditDirectoryPage() {
     }
   }
 
-  /* ---------------- GENERIC ARRAY FIELD HELPERS ---------------- */
-  // Used by the new gallery / document / list fields so we don't
-  // duplicate the same add/remove/update JSX logic over and over.
-
   const updateArrayItem = (field: string, index: number, value: string) => {
     setDirectory((prev: any) => {
       const arr = [...(prev[field] || [])]
@@ -165,6 +174,34 @@ export default function EditDirectoryPage() {
     updateArrayItem(field, index, url)
   }
 
+ /* ================= PRODUCT CATALOGUE UPLOAD ================= */
+  // ✅ Handle catalogue upload specifically
+  const handleCatalogueUpload = async (field: string, index: number, file: File) => {
+    setUploadingCatalogue(true)
+    try {
+      const formData = new FormData()
+      formData.append("document", file) // ✅ Use "document" field name
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload/document`, {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || "File upload failed")
+      }
+
+      const data = await res.json()
+      const url = data.documentUrl // ✅ Use documentUrl
+      updateArrayItem(field, index, url)
+    } catch (error: any) {
+      setSaveError(error.message || "Failed to upload document")
+    } finally {
+      setUploadingCatalogue(false)
+    }
+  }
+
   async function saveChanges() {
     if (!directory?.isLiveEditable) {
       alert("Directory is not approved yet")
@@ -172,6 +209,7 @@ export default function EditDirectoryPage() {
     }
     try {
       setSaving(true)
+      setSaveError("")
       const token = localStorage.getItem("token")
       const geoLib = geo ?? (await loadGeo())
 
@@ -179,18 +217,26 @@ export default function EditDirectoryPage() {
       const selectedState = geoLib.State.getStatesOfCountry(directory.country).find(s => s.isoCode === directory.state)
       const location = [directory.city, selectedState?.name, selectedCountry?.name].filter(Boolean).join(", ")
 
-      // directory already contains every existing field plus all of the
-      // new fields (galleries, documents, list fields, rich text sections,
-      // enableInquiryForm), so spreading it here sends everything to the API
-      // without needing to enumerate each property manually.
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/suppliers/${directory.id}`, {
+      const payload = {
+        ...directory,
+        location,
+        coverImageUrl: directory.coverImages
+      }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/suppliers/${directory.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...directory, location }),
+        body: JSON.stringify(payload),
       })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setSaveError(data.error || "Failed to save changes")
+        return
+      }
 
       router.push("/recruiter/dashboard")
     } finally {
@@ -337,19 +383,42 @@ export default function EditDirectoryPage() {
         />
       </div>
 
-      {/* LOGO + COVER */}
+      {/* LOGO */}
       <div className="grid grid-cols-2 gap-6">
         <UploadBox
           label="Company Logo"
           value={directory.logoUrl}
           onUpload={(file) => handleImageUpload(file, directory, setDirectory, "logoUrl")}
         />
-        {/* <UploadBox
-          label="Cover Image"
-          value={directory.coverImageUrl}
-          onUpload={(file) => handleImageUpload(file, directory, setDirectory, "coverImageUrl")}
-        /> */}
       </div>
+
+      {/* COVER IMAGES */}
+      <Section title="Cover Images">
+        {maxCoverImages === 0 ? (
+          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+            Cover images are available on the Basic plan and above. Upgrade your
+            plan to add a cover banner to your showroom page.
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-gray-400 mb-2">
+              Your plan allows up to {maxCoverImages} cover image{maxCoverImages > 1 ? "s" : ""}.
+              {maxCoverImages > 1 ? " Multiple images will display as a carousel." : ""}
+            </p>
+            <GallerySection
+              field="coverImages"
+              items={directory.coverImages}
+              onUpload={handleGalleryUpload}
+              onAdd={addArrayItem}
+              onRemove={removeArrayItem}
+              addLabel="+ Add cover image"
+              uploadLabel="Cover Image"
+              max={maxCoverImages}
+              allowRemoveFirst
+            />
+          </>
+        )}
+      </Section>
 
       {/* PRODUCT SUPPLIES */}
       <Section title="Product Supplies">
@@ -390,10 +459,46 @@ export default function EditDirectoryPage() {
         </button>
       </Section>
 
+      {/* PRODUCT CATALOGUES - WITH FILE UPLOAD */}
+      <Section title="Product Catalogues">
+        <p className="text-sm text-gray-500 mb-3">
+          Upload your product catalogues (PDFs, brochures, etc.).
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          {directory.productCatalogues.map((url: string, i: number) => (
+            <div key={i} className="space-y-1">
+              <UploadBox
+                label={`Product Catalogue ${i + 1}`}
+                value={url}
+                onUpload={(file) => handleCatalogueUpload("productCatalogues", i, file)}
+              />
+              <button type="button" onClick={() => removeArrayItem("productCatalogues", i)}>
+                ✕ Remove
+              </button>
+            </div>
+          ))}
+          <div className="col-span-2">
+            <button
+              type="button"
+              onClick={() => addArrayItem("productCatalogues")}
+              className="disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              + Add product catalogue
+            </button>
+          </div>
+        </div>
+      </Section>
+
       {/* SOCIAL LINKS */}
       <Section title="Social Media">
         <div className="grid grid-cols-2 gap-4">
-          {["facebook", "linkedin", "twitter", "youtube", "whatsapp"].map((key) => (
+          {[
+            "facebook",
+            "linkedin",
+            "twitter",
+            "youtube",
+            ...(allowWhatsapp ? ["whatsapp"] : []),
+          ].map((key) => (
             <div key={key}>
               <label className="label capitalize">{key}</label>
               <input
@@ -407,6 +512,11 @@ export default function EditDirectoryPage() {
             </div>
           ))}
         </div>
+        {!allowWhatsapp && (
+          <p className="text-xs text-gray-400">
+            WhatsApp is available on the Basic plan and above.
+          </p>
+        )}
       </Section>
 
       {/* TRADE NAMES */}
@@ -460,8 +570,6 @@ export default function EditDirectoryPage() {
           + Add video
         </button>
       </Section>
-
-      {/* ===================== NEW FIELDS BELOW ===================== */}
 
       {/* IMAGE GALLERIES */}
       <Section title="Product Gallery">
@@ -522,7 +630,7 @@ export default function EditDirectoryPage() {
         />
       </Section>
 
-      {/* LIST FIELDS (same UX as Trade Names) */}
+      {/* LIST FIELDS */}
       <Section title="Brands Represented">
         <DynamicListField
           field="brandsRepresented"
@@ -556,7 +664,7 @@ export default function EditDirectoryPage() {
         />
       </Section>
 
-      {/* LONG TEXT SECTIONS — full-width, full-size, same treatment as Description */}
+      {/* LONG TEXT SECTIONS */}
       <Section title="Manufacturing Capabilities">
         <RichTextEditor
           value={directory.manufacturingCapabilities}
@@ -590,9 +698,11 @@ export default function EditDirectoryPage() {
         </label>
       </Section>
 
+      {saveError && <p className="text-red-600 text-sm">{saveError}</p>}
+
       <button
         onClick={saveChanges}
-        disabled={saving}
+        disabled={saving || uploadingCatalogue}
         className="bg-black text-white px-6 py-2 rounded"
       >
         {saving ? "Saving..." : "Save Changes"}
@@ -601,8 +711,8 @@ export default function EditDirectoryPage() {
   )
 }
 
-/* ---------------- IMAGE UPLOAD (existing, unchanged) ---------------- */
-async function handleImageUpload(file: File, directory: any, setDirectory: any, field: "logoUrl" | "coverImageUrl") {
+/* ---------------- LOGO UPLOAD ---------------- */
+async function handleImageUpload(file: File, directory: any, setDirectory: any, field: "logoUrl") {
   const url = await uploadFile(file)
   setDirectory({ ...directory, [field]: url })
 }
@@ -618,10 +728,6 @@ function Section({ title, children }: any) {
 }
 
 /* ---------------- REUSABLE: DYNAMIC STRING LIST ---------------- */
-/**
- * Generic add/remove/edit list of plain text rows, matching the same
- * UX already used for Trade Names / Product Supplies / Video Gallery.
- */
 function DynamicListField({
   field,
   items,
@@ -660,12 +766,6 @@ function DynamicListField({
 }
 
 /* ---------------- REUSABLE: GALLERY / DOCUMENT UPLOAD ---------------- */
-/**
- * Generic add/remove list of file uploads backed by UploadBox, reused
- * for productGallery, companyGallery, factoryGallery, companyBrochure
- * and certifications. Each slot uploads independently and stores the
- * resulting URL into the directory state array at that index.
- */
 function GallerySection({
   field,
   items,
@@ -674,6 +774,8 @@ function GallerySection({
   onRemove,
   addLabel,
   uploadLabel = "File",
+  max,
+  allowRemoveFirst = false,
 }: {
   field: string
   items: string[]
@@ -682,7 +784,11 @@ function GallerySection({
   onRemove: (field: string, index: number) => void
   addLabel: string
   uploadLabel?: string
+  max?: number
+  allowRemoveFirst?: boolean
 }) {
+  const atLimit = typeof max === "number" && items.length >= max
+
   return (
     <div className="grid grid-cols-2 gap-4">
       {items.map((item, i) => (
@@ -692,7 +798,7 @@ function GallerySection({
             value={item}
             onUpload={(file) => onUpload(field, i, file)}
           />
-          {i > 0 && (
+          {(i > 0 || allowRemoveFirst) && (
             <button type="button" onClick={() => onRemove(field, i)}>
               ✕ Remove
             </button>
@@ -700,8 +806,22 @@ function GallerySection({
         </div>
       ))}
       <div className="col-span-2">
-        <button type="button" onClick={() => onAdd(field)}>{addLabel}</button>
+        {typeof max === "number" && (
+          <p className="text-xs text-gray-400 mb-2">{items.length} of {max} used</p>
+        )}
+        <button
+          type="button"
+          onClick={() => onAdd(field)}
+          disabled={atLimit}
+          className="disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {addLabel}
+        </button>
       </div>
     </div>
   )
+}
+
+function setUploadError(message: any) {
+  throw new Error("Function not implemented.")
 }

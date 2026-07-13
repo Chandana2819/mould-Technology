@@ -8,6 +8,11 @@ export const BANNER_PLACEMENTS = [
   { value: "SUPPLIER_AFTER_VIDEO", label: "Supplier – After Video" },
   { value: "SIDEBAR", label: "Sidebar" },
   { value: "FOOTER", label: "Footer" },
+  { value: "EVENT", label: "Event" },
+  { value: "SUPPLIER", label: "Supplier" },
+  { value: "JOB", label: "Job" },
+  { value: "INDUSTRY-TALKS", label: "Industry Talks" },
+  { value: "MAGAZINE", label: "Magazine" },
 ] as const;
 
 export type BannerPlacement =

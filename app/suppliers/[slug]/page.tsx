@@ -11,7 +11,35 @@ import {
   Mail,
 } from "lucide-react"
 import ClaimCompanyBanner from "@/components/ClaimCompanyBanner"
-import GalleryTabs from "@/components/GalleryTabs" // 👈 NEW IMPORT
+import GalleryTabs from "@/components/GalleryTabs"
+import SupplierPromotionBanner from "@/components/SupplierPromotionBanner"
+import Link from "next/link"
+import { cookies } from "next/headers"
+
+type JwtPayload = {
+  id: number
+  role: string
+  email: string
+  companyId?: number | null
+}
+
+async function getCurrentUser(): Promise<JwtPayload | null> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("token")?.value // 🔧 ADJUST "token" if your cookie has a different name
+  if (!token) return null
+
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+    if (!res.ok) return null // invalid/expired token — backend already checked this
+    const data = await res.json()
+    return data.user as JwtPayload
+  } catch {
+    return null
+  }
+}
 
 /* ================= TYPES ================= */
 
@@ -25,6 +53,9 @@ type Article = {
 }
 
 type Supplier = {
+  planTier?: "free" | "basic" | "professional" | "enterprise"
+  promotionBanners?: string[]
+
   id: number
   companyId: number
   name: string
@@ -37,6 +68,12 @@ type Supplier = {
   email?: string
   tradeNames?: string[]
   videoGallery?: string[]
+  productGallery?: string[] 
+  companyGallery?: string[] 
+  factoryGallery?: string[] 
+  views?: number
+  connections?: number
+  createdAt?: string
   socialLinks?: {
     facebook?: string
     linkedin?: string
@@ -76,6 +113,7 @@ export default async function SupplierShowroomPage({
   }
 
   const supplier: Supplier = await supplierRes.json()
+
   const social = supplier.socialLinks || {}
 
   /* ---------- FETCH COMPANY ARTICLES ---------- */
@@ -91,153 +129,213 @@ export default async function SupplierShowroomPage({
 
   const websiteLink = supplier.website || supplier.Company?.website
 
-  /* ================= UI ================= */
+  /* ---------- PLAN ---------- */
+  const planTier = supplier.planTier ?? "free"
+  const normalizedPlanTier =
+    planTier.toLowerCase() as "free" | "basic" | "professional" | "enterprise"
+  const isPaid = normalizedPlanTier !== "free"
+
+  /* ---------- OWNERSHIP CHECK ----------
+     Reads the JWT from the "token" cookie and verifies it with the same
+     JWT_SECRET the Express backend uses. No session store involved —
+     this mirrors what requireAuth does on the API side, just server-side
+     in the Next.js page instead of an Express middleware.
+  */
+  const currentUser = await getCurrentUser()
+  const isLoggedIn = Boolean(currentUser)
+  const isOwner =
+    isLoggedIn && currentUser?.companyId === supplier.companyId
+
+  // Convenience flag: show upgrade/claim UI only to the owner of a free listing
+  const showUpsellToOwner = !isPaid && isOwner
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* HERO - visible for every plan */}
+      <div className="relative bg-black h-[180px] md:h-[200px]" />
 
-      {/* HERO */}
-      <div className="relative h-[300px] bg-black">
-        {supplier.coverImageUrl && (
-          <img
-            src={supplier.coverImageUrl}
-            alt={supplier.name}
-            className="absolute inset-0 w-full h-full object-cover opacity-70"
+      {/* PROMOTION BANNER - carries logo, name, location, contact info & socials for paid suppliers */}
+      {isPaid && (
+        <div className="relative z-20 max-w-6xl mx-auto px-6 -mt-14 md:-mt-16">
+          <SupplierPromotionBanner
+            planTier={normalizedPlanTier}
+            name={supplier.name}
+            location={supplier.Company?.location}
+            logoUrl={supplier.logoUrl}
+            coverImageUrl={supplier.coverImageUrl}
+            tradeNames={supplier.tradeNames}
+            phoneNumber={supplier.phoneNumber}
+            email={supplier.email}
+            website={websiteLink}
+            socialLinks={supplier.socialLinks}
+          />
+        </div>
+      )}
+
+      {/* MAIN CONTENT */}
+      <div
+        className={`relative z-10 max-w-6xl mx-auto px-6 ${isPaid ? "mt-6" : "-mt-24 md:-mt-28"
+          }`}
+      >
+        {/* FREE PLAN: original card-with-sidebar layout, since there's no promo banner to hold contact info */}
+        {!isPaid && (
+          <div className="bg-white rounded-lg shadow p-10 border-t-4 border-red-700">
+            <h1 className="text-3xl font-bold text-center text-[#0b3954]">
+              {supplier.name}
+            </h1>
+
+            {supplier.Company?.location && (
+              <p className="flex items-center justify-center gap-2 text-gray-500 mt-2">
+                <MapPin size={16} />
+                {supplier.Company.location}
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-14 mt-12">
+              {/* LEFT SIDEBAR */}
+              <aside className="space-y-8 md:col-span-1">
+                {supplier.logoUrl && (
+                  <img
+                    src={supplier.logoUrl}
+                    alt={supplier.name}
+                    className="w-full max-w-[160px] object-contain"
+                  />
+                )}
+
+                {/* CONTACT INFO */}
+                <div className="text-sm space-y-3">
+                  {supplier.tradeNames && supplier.tradeNames.length > 0 && (
+                    <p className="text-gray-600">
+                      <strong>Trade Names:</strong>{" "}
+                      {supplier.tradeNames.join(", ")}
+                    </p>
+                  )}
+
+                  {supplier.phoneNumber && (
+                    <p className="flex items-center gap-2">
+                      <Phone size={14} />
+                      {supplier.phoneNumber}
+                    </p>
+                  )}
+
+                  {supplier.email && (
+                    <p className="flex items-center gap-2">
+                      <Mail size={14} />
+                      {supplier.email}
+                    </p>
+                  )}
+
+                  {websiteLink && (
+                    <p className="flex items-center gap-2">
+                      <Globe size={14} />
+                      <a
+                        href={websiteLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {websiteLink}
+                      </a>
+                    </p>
+                  )}
+                </div>
+
+                {/* SOCIAL LINKS */}
+                {(social.facebook ||
+                  social.linkedin ||
+                  social.twitter ||
+                  social.youtube) && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-600 uppercase mb-3">
+                        Connect
+                      </h4>
+
+                      <SocialLinksTracker supplierId={supplier.id}>
+                        <div className="flex gap-4">
+                          {social.facebook && (
+                            <a href={social.facebook} target="_blank">
+                              <LucideFacebook className="w-5 h-5 text-[#3b5998]" />
+                            </a>
+                          )}
+                          {social.linkedin && (
+                            <a href={social.linkedin} target="_blank">
+                              <LucideLinkedin className="w-5 h-5 text-[#0077b5]" />
+                            </a>
+                          )}
+                          {social.twitter && (
+                            <a href={social.twitter} target="_blank">
+                              <LucideTwitter className="w-5 h-5" />
+                            </a>
+                          )}
+                          {social.youtube && (
+                            <a href={social.youtube} target="_blank">
+                              <LucideYoutube className="w-5 h-5 text-red-600" />
+                            </a>
+                          )}
+                        </div>
+                      </SocialLinksTracker>
+                    </div>
+                  )}
+              </aside>
+
+              {/* RIGHT CONTENT */}
+              <section className="md:col-span-2">
+                <div
+                  className="prose prose-sm max-w-none text-gray-700"
+                  dangerouslySetInnerHTML={{ __html: supplier.description }}
+                />
+              </section>
+            </div>
+          </div>
+        )}
+
+        {/* PAID PLANS: banner already carries logo/contact/social, so just show the description as plain prose */}
+        {isPaid && (
+          <div
+            className="prose prose-sm max-w-none text-gray-700"
+            dangerouslySetInnerHTML={{ __html: supplier.description }}
           />
         )}
-      </div>
 
-      {/* MAIN CARD */}
-      <div className="relative z-10 max-w-6xl mx-auto px-6 -mt-36">
-        <div className="bg-white rounded-lg shadow p-10 border-t-4 border-red-700">
+        {/* Update Your Listing - free plan only, AND only for the owner viewing their own listing */}
+        {showUpsellToOwner && <ClaimCompanyBanner />}
 
-          {/* TITLE */}
-          <h1 className="text-3xl font-bold text-center text-[#0b3954]">
-            {supplier.name}
-          </h1>
+        <hr className="my-12" />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-14 mt-12">
-
-            {/* LEFT SIDEBAR */}
-            <aside className="space-y-8 md:col-span-1">
-
-              {supplier.logoUrl && (
-                <img
-                  src={supplier.logoUrl}
-                  alt={supplier.name}
-                  className="w-full max-w-[160px] object-contain"
-                />
-              )}
-
-              {/* LOCATION */}
-              {supplier.Company?.location && (
-                <p className="flex items-center justify-center gap-2 text-gray-500 mt-2">
-                  <MapPin size={16} />
-                  {supplier.Company.location}
-                </p>
-              )}
-
-              {/* CONTACT INFO */}
-              <div className="text-sm space-y-3">
-
-                {supplier.tradeNames && supplier.tradeNames.length > 0 && (
-                  <p className="text-gray-600">
-                    <strong>Trade Names:</strong>{" "}
-                    {supplier.tradeNames.join(", ")}
-                  </p>
-                )}
-
-                {supplier.phoneNumber && (
-                  <p className="flex items-center gap-2">
-                    <Phone size={14} />
-                    {supplier.phoneNumber}
-                  </p>
-                )}
-
-                {supplier.email && (
-                  <p className="flex items-center gap-2">
-                    <Mail size={14} />
-                    {supplier.email}
-                  </p>
-                )}
-
-                {websiteLink && (
-                  <p className="flex items-center gap-2">
-                    <Globe size={14} />
-                    <a
-                      href={websiteLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      {websiteLink}
-                    </a>
-                  </p>
-                )}
-              </div>
-
-              {/* SOCIAL LINKS */}
-              {(social.facebook ||
-                social.linkedin ||
-                social.twitter ||
-                social.youtube) && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-600 uppercase mb-3">
-                    Connect
-                  </h4>
-
-                  <SocialLinksTracker supplierId={supplier.id}>
-                    <div className="flex gap-4">
-                      {social.facebook && (
-                        <a href={social.facebook} target="_blank">
-                          <LucideFacebook className="w-5 h-5 text-[#3b5998]" />
-                        </a>
-                      )}
-                      {social.linkedin && (
-                        <a href={social.linkedin} target="_blank">
-                          <LucideLinkedin className="w-5 h-5 text-[#0077b5]" />
-                        </a>
-                      )}
-                      {social.twitter && (
-                        <a href={social.twitter} target="_blank">
-                          <LucideTwitter className="w-5 h-5" />
-                        </a>
-                      )}
-                      {social.youtube && (
-                        <a href={social.youtube} target="_blank">
-                          <LucideYoutube className="w-5 h-5 text-red-600" />
-                        </a>
-                      )}
-                    </div>
-                  </SocialLinksTracker>
-                </div>
-              )}
-            </aside>
-
-            {/* RIGHT CONTENT */}
-            <section className="md:col-span-2">
-              <div
-                className="prose prose-sm max-w-none text-gray-700"
-                dangerouslySetInnerHTML={{ __html: supplier.description }}
-              />
-            </section>
+        {/* Upsell banner - free plan only, owner-only, sits above the gallery, doesn't replace it */}
+        {showUpsellToOwner && (
+          <div className="text-center py-8 px-6 mb-8 bg-white border border-dashed border-gray-300 rounded-lg">
+            <p className="text-gray-700 font-semibold">
+              Want to upload your own photos and videos?
+            </p>
+            <p className="text-gray-500 text-sm mt-1">
+              Upgrade your plan to add and manage your own gallery content.
+            </p>
+            <Link
+              href="/login"
+              className="inline-block mt-4 bg-[#0b3954] text-white px-6 py-2 text-sm font-semibold uppercase hover:bg-[#092f46] transition"
+            >
+              Purchase a Plan
+            </Link>
           </div>
+        )}
 
-          {/* Update Your Listing */}
-          <ClaimCompanyBanner />
+        {/* GALLERY TABS - visible for every supplier, paid or free */}
+        <GalleryTabs
+          videoGallery={supplier.videoGallery}
+          productGallery={supplier.productGallery}
+          companyGallery={supplier.companyGallery}
+          factoryGallery={supplier.factoryGallery}
+          isPaid={isPaid}
+        />
 
-          {/* ====== GALLERY TABS - REPLACES VIDEO GALLERY ====== */}
-          <hr className="my-12" />
-          <GalleryTabs videoGallery={supplier.videoGallery} />
-
-          {/* ARTICLES */}
-          {articles.length > 0 && (
-            <>
-              <hr className="my-12" />
-              <CompanyArticlesCarousel articles={articles} />
-            </>
-          )}
-        </div>
+        {/* ARTICLES - all plans */}
+        {articles.length > 0 && (
+          <>
+            <hr className="my-12" />
+            <CompanyArticlesCarousel articles={articles} />
+          </>
+        )}
       </div>
     </div>
   )

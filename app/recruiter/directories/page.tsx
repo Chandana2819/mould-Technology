@@ -17,7 +17,30 @@ type Directory = {
   slug: string
   status: "PENDING" | "APPROVED" | "REJECTED"
   isLiveEditable: boolean
+  createdAt: string
+
+  logoUrl?: string
+  coverImageUrl?: string
+
   productSupplies?: unknown
+
+  videoGallery?: unknown
+  productGallery?: unknown
+  companyGallery?: unknown
+  factoryGallery?: unknown
+
+  companyBrochure?: unknown
+  certifications?: unknown
+
+  brandsRepresented?: unknown
+  industriesServed?: unknown
+  exportMarkets?: unknown
+
+  manufacturingCapabilities?: unknown
+  machineryList?: unknown
+  qualityStandards?: unknown
+
+  enableInquiryForm?: boolean
 }
 
 export default function RecruiterDirectoriesPage() {
@@ -54,8 +77,14 @@ export default function RecruiterDirectoriesPage() {
         )
 
         if (!directoriesRes.ok) {
-          const data = await directoriesRes.json().catch(() => ({}))
-          throw new Error(data.error || "Failed to load directories")
+          const error = await directoriesRes.json().catch(() => ({}))
+
+          setError(
+            error.error ??
+            "The server is temporarily unavailable. Please try again later."
+          )
+
+          return
         }
 
         const data = await directoriesRes.json()

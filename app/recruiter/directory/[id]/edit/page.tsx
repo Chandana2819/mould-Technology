@@ -10,6 +10,23 @@ import {
   type ContentLimitEligibility,
 } from "@/lib/packageLimits"
 
+/* ---------------- SHARED FILE UPLOAD HELPER ---------------- */
+/**
+ * Uploads a single file to the existing /api/upload endpoint and
+ * returns the resulting URL. Reused by logo upload, galleries and
+ * document uploads so we only have one place that talks to the API.
+ */
+async function uploadFile(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append("image", file)
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload`, {
+    method: "POST",
+    body: formData,
+  })
+  const data = await res.json()
+  return data.imageUrl
+}
+
 export default function EditDirectoryPage() {
   const router = useRouter()
   const params = useParams()
@@ -72,6 +89,24 @@ export default function EditDirectoryPage() {
           city: data.city || "",
           address: data.address || "",
           industryId: data.industryId || "",
+
+          // ---- NEW FIELDS ----
+          productGallery: data.productGallery || [""],
+          companyGallery: data.companyGallery || [""],
+          factoryGallery: data.factoryGallery || [""],
+
+          companyBrochure: data.companyBrochure || [""],
+          certifications: data.certifications || [""],
+
+          brandsRepresented: data.brandsRepresented || [""],
+          industriesServed: data.industriesServed || [""],
+          exportMarkets: data.exportMarkets || [""],
+
+          manufacturingCapabilities: data.manufacturingCapabilities || "",
+          machineryList: data.machineryList || "",
+          qualityStandards: data.qualityStandards || "",
+
+          enableInquiryForm: data.enableInquiryForm ?? true,
         })
       } catch {
         alert("Unable to load directory")
@@ -99,6 +134,37 @@ export default function EditDirectoryPage() {
     }
   }
 
+  /* ---------------- GENERIC ARRAY FIELD HELPERS ---------------- */
+  // Used by the new gallery / document / list fields so we don't
+  // duplicate the same add/remove/update JSX logic over and over.
+
+  const updateArrayItem = (field: string, index: number, value: string) => {
+    setDirectory((prev: any) => {
+      const arr = [...(prev[field] || [])]
+      arr[index] = value
+      return { ...prev, [field]: arr }
+    })
+  }
+
+  const addArrayItem = (field: string) => {
+    setDirectory((prev: any) => ({
+      ...prev,
+      [field]: [...(prev[field] || []), ""],
+    }))
+  }
+
+  const removeArrayItem = (field: string, index: number) => {
+    setDirectory((prev: any) => ({
+      ...prev,
+      [field]: (prev[field] || []).filter((_: any, idx: number) => idx !== index),
+    }))
+  }
+
+  const handleGalleryUpload = async (field: string, index: number, file: File) => {
+    const url = await uploadFile(file)
+    updateArrayItem(field, index, url)
+  }
+
   async function saveChanges() {
     if (!directory?.isLiveEditable) {
       alert("Directory is not approved yet")
@@ -113,6 +179,10 @@ export default function EditDirectoryPage() {
       const selectedState = geoLib.State.getStatesOfCountry(directory.country).find(s => s.isoCode === directory.state)
       const location = [directory.city, selectedState?.name, selectedCountry?.name].filter(Boolean).join(", ")
 
+      // directory already contains every existing field plus all of the
+      // new fields (galleries, documents, list fields, rich text sections,
+      // enableInquiryForm), so spreading it here sends everything to the API
+      // without needing to enumerate each property manually.
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/suppliers/${directory.id}`, {
         method: "PUT",
         headers: {
@@ -391,6 +461,135 @@ export default function EditDirectoryPage() {
         </button>
       </Section>
 
+      {/* ===================== NEW FIELDS BELOW ===================== */}
+
+      {/* IMAGE GALLERIES */}
+      <Section title="Product Gallery">
+        <GallerySection
+          field="productGallery"
+          items={directory.productGallery}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add product image"
+        />
+      </Section>
+
+      <Section title="Company Gallery">
+        <GallerySection
+          field="companyGallery"
+          items={directory.companyGallery}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add company image"
+        />
+      </Section>
+
+      <Section title="Factory Gallery">
+        <GallerySection
+          field="factoryGallery"
+          items={directory.factoryGallery}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add factory image"
+        />
+      </Section>
+
+      {/* DOCUMENTS */}
+      <Section title="Company Brochure">
+        <GallerySection
+          field="companyBrochure"
+          items={directory.companyBrochure}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add brochure file"
+          uploadLabel="Brochure File"
+        />
+      </Section>
+
+      <Section title="Certifications">
+        <GallerySection
+          field="certifications"
+          items={directory.certifications}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add certification file"
+          uploadLabel="Certification File"
+        />
+      </Section>
+
+      {/* LIST FIELDS (same UX as Trade Names) */}
+      <Section title="Brands Represented">
+        <DynamicListField
+          field="brandsRepresented"
+          items={directory.brandsRepresented}
+          onChange={updateArrayItem}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add brand"
+        />
+      </Section>
+
+      <Section title="Industries Served">
+        <DynamicListField
+          field="industriesServed"
+          items={directory.industriesServed}
+          onChange={updateArrayItem}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add industry served"
+        />
+      </Section>
+
+      <Section title="Export Markets">
+        <DynamicListField
+          field="exportMarkets"
+          items={directory.exportMarkets}
+          onChange={updateArrayItem}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add export market"
+        />
+      </Section>
+
+      {/* LONG TEXT SECTIONS — full-width, full-size, same treatment as Description */}
+      <Section title="Manufacturing Capabilities">
+        <RichTextEditor
+          value={directory.manufacturingCapabilities}
+          onChange={(val: string) => setDirectory({ ...directory, manufacturingCapabilities: val })}
+        />
+      </Section>
+
+      <Section title="Machinery List">
+        <RichTextEditor
+          value={directory.machineryList}
+          onChange={(val: string) => setDirectory({ ...directory, machineryList: val })}
+        />
+      </Section>
+
+      <Section title="Quality Standards">
+        <RichTextEditor
+          value={directory.qualityStandards}
+          onChange={(val: string) => setDirectory({ ...directory, qualityStandards: val })}
+        />
+      </Section>
+
+      {/* BOOLEAN TOGGLE */}
+      <Section title="Inquiry Form">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={directory.enableInquiryForm ?? true}
+            onChange={(e) => setDirectory({ ...directory, enableInquiryForm: e.target.checked })}
+          />
+          <span>Enable inquiry form on public showroom page</span>
+        </label>
+      </Section>
+
       <button
         onClick={saveChanges}
         disabled={saving}
@@ -402,13 +601,10 @@ export default function EditDirectoryPage() {
   )
 }
 
-/* ---------------- IMAGE UPLOAD ---------------- */
+/* ---------------- IMAGE UPLOAD (existing, unchanged) ---------------- */
 async function handleImageUpload(file: File, directory: any, setDirectory: any, field: "logoUrl" | "coverImageUrl") {
-  const formData = new FormData()
-  formData.append("image", file)
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload`, { method: "POST", body: formData })
-  const data = await res.json()
-  setDirectory({ ...directory, [field]: data.imageUrl })
+  const url = await uploadFile(file)
+  setDirectory({ ...directory, [field]: url })
 }
 
 /* ---------------- SECTION ---------------- */
@@ -417,6 +613,95 @@ function Section({ title, children }: any) {
     <div className="space-y-2">
       <h3 className="font-semibold">{title}</h3>
       {children}
+    </div>
+  )
+}
+
+/* ---------------- REUSABLE: DYNAMIC STRING LIST ---------------- */
+/**
+ * Generic add/remove/edit list of plain text rows, matching the same
+ * UX already used for Trade Names / Product Supplies / Video Gallery.
+ */
+function DynamicListField({
+  field,
+  items,
+  onChange,
+  onAdd,
+  onRemove,
+  addLabel,
+  placeholder,
+}: {
+  field: string
+  items: string[]
+  onChange: (field: string, index: number, value: string) => void
+  onAdd: (field: string) => void
+  onRemove: (field: string, index: number) => void
+  addLabel: string
+  placeholder?: string
+}) {
+  return (
+    <>
+      {items.map((item, i) => (
+        <div key={i} className="flex gap-2">
+          <input
+            className="input flex-1"
+            placeholder={placeholder}
+            value={item}
+            onChange={(e) => onChange(field, i, e.target.value)}
+          />
+          {i > 0 && (
+            <button type="button" onClick={() => onRemove(field, i)}>✕</button>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={() => onAdd(field)}>{addLabel}</button>
+    </>
+  )
+}
+
+/* ---------------- REUSABLE: GALLERY / DOCUMENT UPLOAD ---------------- */
+/**
+ * Generic add/remove list of file uploads backed by UploadBox, reused
+ * for productGallery, companyGallery, factoryGallery, companyBrochure
+ * and certifications. Each slot uploads independently and stores the
+ * resulting URL into the directory state array at that index.
+ */
+function GallerySection({
+  field,
+  items,
+  onUpload,
+  onAdd,
+  onRemove,
+  addLabel,
+  uploadLabel = "File",
+}: {
+  field: string
+  items: string[]
+  onUpload: (field: string, index: number, file: File) => void | Promise<void>
+  onAdd: (field: string) => void
+  onRemove: (field: string, index: number) => void
+  addLabel: string
+  uploadLabel?: string
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      {items.map((item, i) => (
+        <div key={i} className="space-y-1">
+          <UploadBox
+            label={`${uploadLabel} ${i + 1}`}
+            value={item}
+            onUpload={(file) => onUpload(field, i, file)}
+          />
+          {i > 0 && (
+            <button type="button" onClick={() => onRemove(field, i)}>
+              ✕ Remove
+            </button>
+          )}
+        </div>
+      ))}
+      <div className="col-span-2">
+        <button type="button" onClick={() => onAdd(field)}>{addLabel}</button>
+      </div>
     </div>
   )
 }

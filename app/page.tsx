@@ -233,9 +233,19 @@ export default async function Home() {
   const postsRes = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/posts?limit=50`,
     { cache: "no-store" }
-  )
+  );
 
-  const postsData = await postsRes.json()
+  const text = await postsRes.text();
+
+  console.log("Posts API:", text);
+
+  if (!text) {
+    throw new Error("Posts API returned empty response");
+  }
+
+  const postsData = JSON.parse(text);
+
+  // const postsData = await postsRes.json()
   const posts: Post[] = postsData.data || postsData
 
   if (!Array.isArray(posts) || posts.length === 0) {

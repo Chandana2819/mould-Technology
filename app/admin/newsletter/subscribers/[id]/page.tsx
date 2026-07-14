@@ -9,65 +9,71 @@ export default function EditSubscriberPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
-
     source: "MANUAL",
-
     frequency: "MONTHLY",
-
     receiveEmail: true,
     receiveWhatsapp: false,
     receiveSMS: false,
-
     status: "ACTIVE",
   });
 
   useEffect(() => {
     loadSubscriber();
-  }, []);
+  }, [id]);
 
   async function loadSubscriber() {
     try {
+      setError(null);
       const token = localStorage.getItem("token");
+
+      if (!token) {
+        router.push("/admin/login");
+        return;
+      }
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/newsletter/subscribers/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         }
       );
 
-      const data = await res.json();
-
       if (!res.ok) {
-        alert(data.error || "Subscriber not found");
-        router.push("/admin/newsletter/subscribers");
-        return;
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          router.push("/admin/login");
+          return;
+        }
+        const data = await res.json();
+        throw new Error(data.error || "Subscriber not found");
       }
 
+      const data = await res.json();
+
       setForm({
-        name: data.name || "",
+        name: data.fullName || data.name || "",
         email: data.email || "",
-        phone: data.phone || "",
-
+        phone: data.phoneNumber || data.phone || "",
         source: data.source || "MANUAL",
-
         frequency: data.frequency || "MONTHLY",
-
-        receiveEmail: data.receiveEmail,
-        receiveWhatsapp: data.receiveWhatsapp,
-        receiveSMS: data.receiveSMS,
-
+        receiveEmail: data.emailSubscribed ?? data.receiveEmail ?? true,
+        receiveWhatsapp: data.whatsappSubscribed ?? data.receiveWhatsapp ?? false,
+        receiveSMS: data.smsSubscribed ?? data.receiveSMS ?? false,
         status: data.status || "ACTIVE",
       });
-    } catch {
-      alert("Unable to load subscriber");
+    } catch (err: any) {
+      setError(err.message);
+      alert(err.message);
+      router.push("/admin/newsletter/subscribers");
     } finally {
       setLoading(false);
     }
@@ -94,11 +100,29 @@ export default function EditSubscriberPage() {
 
   async function updateSubscriber(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
 
     try {
       setSaving(true);
-
       const token = localStorage.getItem("token");
+
+      if (!token) {
+        router.push("/admin/login");
+        return;
+      }
+
+      // Map frontend field names to backend field names
+      const payload = {
+        fullName: form.name,
+        email: form.email,
+        phoneNumber: form.phone,
+        source: form.source,
+        frequency: form.frequency,
+        emailSubscribed: form.receiveEmail,
+        whatsappSubscribed: form.receiveWhatsapp,
+        smsSubscribed: form.receiveSMS,
+        status: form.status,
+      };
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/newsletter/subscribers/${id}`,
@@ -108,94 +132,103 @@ export default function EditSubscriberPage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         }
       );
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Update failed");
-        return;
+        throw new Error(data.error || "Update failed");
       }
 
-      alert("Subscriber updated");
-
+      alert("Subscriber updated successfully");
       router.push("/admin/newsletter/subscribers");
-    } catch {
-      alert("Something went wrong");
+    } catch (err: any) {
+      setError(err.message);
+      alert(err.message);
     } finally {
       setSaving(false);
     }
   }
 
   async function deleteSubscriber() {
-    if (!confirm("Delete subscriber?")) return;
+    if (!confirm("Are you sure you want to delete this subscriber?")) return;
 
-    const token = localStorage.getItem("token");
+    try {
+      const token = localStorage.getItem("token");
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/newsletter/subscribers/${id}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      if (!token) {
+        router.push("/admin/login");
+        return;
       }
-    );
 
-    if (!res.ok) {
-      alert("Delete failed");
-      return;
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/newsletter/subscribers/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Delete failed");
+      }
+
+      alert("Subscriber deleted successfully");
+      router.push("/admin/newsletter/subscribers");
+    } catch (err: any) {
+      alert(err.message);
     }
-
-    alert("Deleted");
-
-    router.push("/admin/newsletter/subscribers");
   }
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-8">Edit Subscriber</h1>
 
-      <h1 className="text-3xl font-bold mb-8">
-        Edit Subscriber
-      </h1>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
 
-      <form
-        onSubmit={updateSubscriber}
-        className="space-y-6"
-      >
-
+      <form onSubmit={updateSubscriber} className="space-y-6">
         <div>
-          <label>Name</label>
-
+          <label className="block text-sm font-medium mb-2">Name</label>
           <input
             name="name"
             value={form.name}
             onChange={updateField}
             className="border w-full h-11 px-4 rounded-lg"
+            required
           />
         </div>
 
         <div>
-          <label>Email</label>
-
+          <label className="block text-sm font-medium mb-2">Email</label>
           <input
             type="email"
             name="email"
             value={form.email}
             onChange={updateField}
             className="border w-full h-11 px-4 rounded-lg"
+            required
           />
         </div>
 
         <div>
-          <label>Phone</label>
-
+          <label className="block text-sm font-medium mb-2">Phone</label>
           <input
             name="phone"
             value={form.phone}
@@ -205,8 +238,7 @@ export default function EditSubscriberPage() {
         </div>
 
         <div>
-          <label>Source</label>
-
+          <label className="block text-sm font-medium mb-2">Source</label>
           <select
             name="source"
             value={form.source}
@@ -216,12 +248,12 @@ export default function EditSubscriberPage() {
             <option value="MANUAL">Manual</option>
             <option value="FORM">Newsletter Form</option>
             <option value="COMPANY">Company Profile</option>
+            <option value="ADMIN">Admin</option>
           </select>
         </div>
 
         <div>
-          <label>Frequency</label>
-
+          <label className="block text-sm font-medium mb-2">Frequency</label>
           <select
             name="frequency"
             value={form.frequency}
@@ -236,11 +268,7 @@ export default function EditSubscriberPage() {
         </div>
 
         <div>
-
-          <label className="font-medium block mb-3">
-            Delivery Channels
-          </label>
-
+          <label className="font-medium block mb-3">Delivery Channels</label>
           <label className="flex gap-3 mb-3">
             <input
               type="checkbox"
@@ -250,7 +278,6 @@ export default function EditSubscriberPage() {
             />
             Email
           </label>
-
           <label className="flex gap-3 mb-3">
             <input
               type="checkbox"
@@ -260,7 +287,6 @@ export default function EditSubscriberPage() {
             />
             WhatsApp
           </label>
-
           <label className="flex gap-3">
             <input
               type="checkbox"
@@ -270,13 +296,10 @@ export default function EditSubscriberPage() {
             />
             SMS
           </label>
-
         </div>
 
         <div>
-
-          <label>Status</label>
-
+          <label className="block text-sm font-medium mb-2">Status</label>
           <select
             name="status"
             value={form.status}
@@ -284,19 +307,15 @@ export default function EditSubscriberPage() {
             className="border w-full h-11 px-4 rounded-lg"
           >
             <option value="ACTIVE">Active</option>
-            <option value="UNSUBSCRIBED">
-              Unsubscribed
-            </option>
+            <option value="UNSUBSCRIBED">Unsubscribed</option>
           </select>
-
         </div>
 
         <div className="flex gap-3 pt-4">
-
           <button
             type="submit"
             disabled={saving}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg"
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             {saving ? "Saving..." : "Update Subscriber"}
           </button>
@@ -304,7 +323,7 @@ export default function EditSubscriberPage() {
           <button
             type="button"
             onClick={deleteSubscriber}
-            className="bg-red-600 text-white px-6 py-3 rounded-lg"
+            className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700"
           >
             Delete
           </button>
@@ -312,15 +331,12 @@ export default function EditSubscriberPage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="border px-6 py-3 rounded-lg"
+            className="border px-6 py-3 rounded-lg hover:bg-gray-50"
           >
             Cancel
           </button>
-
         </div>
-
       </form>
-
     </div>
   );
 }

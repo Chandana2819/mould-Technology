@@ -37,7 +37,21 @@ export default function MagazineWithCoverStory() {
       })
   }, [])
 
-  if (loading) return <p className="p-10">Loading...</p>
+  if (loading) {
+    return (
+      <section className="bg-[#E9ECEF]">
+        <div className="max-w-[1320px] mx-auto grid grid-cols-1 lg:grid-cols-[420px_1fr]">
+          <div className="p-10 flex flex-col justify-center space-y-6">
+            <div className="h-8 w-40 bg-neutral-300 rounded animate-pulse" />
+            <div className="w-[220px] h-[300px] bg-neutral-300 rounded shadow-xl animate-pulse" />
+            <div className="h-4 w-28 bg-neutral-300 rounded animate-pulse" />
+            <div className="h-8 w-36 bg-neutral-300 rounded animate-pulse" />
+          </div>
+          <div className="relative h-[520px] bg-neutral-200 animate-pulse" />
+        </div>
+      </section>
+    )
+  }
   if (!magazine) return null
 
   return (

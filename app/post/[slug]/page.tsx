@@ -10,6 +10,7 @@ import ContentGateModal from "@/components/content-gate-modal"
 import PostViewCounter from "@/components/PostViewCounter"
 import Loader from "@/components/Loader"
 import SupplierAds from "@/components/SupplierAds"
+import { Skeleton } from "@/components/ui/skeleton"
 
 /* ================= TYPES ================= */
 type Author = {
@@ -93,7 +94,61 @@ export default function PostDetailsPage() {
     return () => clearTimeout(timer)
   }, [userSubmitted])
 
-  if (!post) return <Loader />
+  if (!post) {
+    return (
+      <main className="bg-[#f9f9f9] overflow-x-hidden">
+        {/* HERO SECTION SKELETON */}
+        <section className="bg-white border-b border-gray-200">
+          <div className="max-w-[1320px] mx-auto px-4 py-10 space-y-6">
+            <Skeleton className="h-4 w-32 rounded" />
+            <Skeleton className="h-10 md:h-12 w-2/3 rounded" />
+            <Skeleton className="h-5 w-4/5 rounded" />
+            <Skeleton className="w-full h-[420px] rounded-lg" />
+            
+            <div className="flex items-center gap-3 mt-6">
+              <Skeleton className="w-10 h-10 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-3 w-40 rounded" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CONTENT + SIDEBAR SECTION SKELETON */}
+        <section className="max-w-[1320px] mx-auto px-4 py-10">
+          <div className="grid grid-cols-1 lg:grid-cols-[8fr_4fr] gap-10">
+            {/* Left Content */}
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-4 w-11/12 rounded" />
+                <Skeleton className="h-4 w-5/6 rounded" />
+                <Skeleton className="h-4 w-2/3 rounded" />
+              </div>
+              <div className="space-y-3 pt-4">
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-4 w-11/12 rounded" />
+                <Skeleton className="h-4 w-4/5 rounded" />
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="space-y-6 hidden lg:block">
+              <div className="border border-gray-100 rounded-xl p-6 space-y-4">
+                <Skeleton className="h-6 w-36 rounded" />
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-4 w-11/12 rounded" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    )
+  }
 
   const embedUrl = getYoutubeEmbed(post.youtubeUrl)
 

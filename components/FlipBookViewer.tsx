@@ -10,7 +10,57 @@ const HTMLFlipBook: any = dynamic(
 )
 
 type Props = {
-  pages: string[]
+  pages: (string | { type: string; content: string })[]
+}
+
+const renderPageContent = (page: string | { type: string; content: string }, index: number) => {
+  if (typeof page === "object") {
+    if (page.type === "hint") {
+      return (
+        <div className="w-full h-full bg-[#003B5C] text-white flex flex-col items-center justify-center p-8 select-none border border-white/10">
+          <div className="text-center space-y-6 max-w-md">
+            <div className="w-20 h-20 mx-auto rounded-full bg-white/10 flex items-center justify-center animate-bounce">
+              <span className="text-3xl">📖</span>
+            </div>
+            <h2 className="text-2xl font-bold uppercase tracking-wider text-teal-300">Welcome</h2>
+            <p className="text-lg font-medium text-gray-200">{page.content}</p>
+            <div className="pt-4 text-xs text-gray-400 animate-pulse">
+              Swipe left or click the page edges to flip
+            </div>
+          </div>
+        </div>
+      )
+    }
+    if (page.type === "thankyou") {
+      return (
+        <div className="w-full h-full bg-[#0F5B78] text-white flex flex-col items-center justify-center p-8 select-none border border-white/10">
+          <div className="text-center space-y-6 max-w-md">
+            <div className="w-20 h-20 mx-auto rounded-full bg-white/10 flex items-center justify-center">
+              <span className="text-3xl">✨</span>
+            </div>
+            <h2 className="text-2xl font-bold uppercase tracking-wider text-teal-300">The End</h2>
+            <p className="text-xl font-semibold">{page.content}</p>
+            <div className="h-[1px] w-24 bg-white/20 mx-auto my-4" />
+            <p className="text-sm text-gray-300">Tooling Trends Digital Edition</p>
+          </div>
+        </div>
+      )
+    }
+  }
+
+  const imageUrl = typeof page === "string" ? page : "";
+  return (
+    <div className="relative w-full h-full">
+      <Image
+        src={imageUrl || "/placeholder.svg"}
+        alt={`Page ${index + 1}`}
+        fill
+        className="object-cover"
+        unoptimized
+        sizes="100vw"
+      />
+    </div>
+  )
 }
 
 export default function FlipBookViewer({ pages }: Props) {
@@ -103,16 +153,7 @@ export default function FlipBookViewer({ pages }: Props) {
           >
             {pages.map((page, index) => (
               <div key={index} className="bg-white">
-                <div className="relative w-full h-full">
-  <Image
-    src={page}
-    alt={`Page ${index + 1}`}
-    fill
-    className="object-cover"
-    unoptimized
-    sizes="100vw"
-  />
-</div>
+                {renderPageContent(page, index)}
               </div>
             ))}
           </HTMLFlipBook>
@@ -155,16 +196,7 @@ export default function FlipBookViewer({ pages }: Props) {
       >
         {pages.map((page, index) => (
           <div key={index} className="bg-white">
-           <div className="relative w-full h-full">
-  <Image
-    src={page}
-    alt={`Page ${index + 1}`}
-    fill
-    className="object-cover"
-    unoptimized
-    sizes="100vw"
-  />
-</div>
+            {renderPageContent(page, index)}
           </div>
         ))}
       </HTMLFlipBook>

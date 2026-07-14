@@ -82,10 +82,16 @@ export default async function SingleMagazinePage({ params }: Props) {
 
   const magazine = await getMagazine(slug)
 
+  const pagesWithHints = [
+    { type: "hint", content: "Click or swipe to flip →" }, // synthetic first page
+    ...(magazine.flipbookPages || []),
+    { type: "thankyou", content: "Thank you for reading!" }, // synthetic last page
+  ]
+
   return (
     <div className="max-w-[1320px] mx-auto px-4 md:px-6 lg:px-[15px] py-12">
 
-      <FlipBookViewer pages={magazine.flipbookPages || []} />
+      <FlipBookViewer pages={pagesWithHints} />
 
       <h1 className="text-4xl font-bold mt-12 mb-6 text-[#003B5C]">
         {magazine.title}

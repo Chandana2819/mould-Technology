@@ -43,7 +43,7 @@ export const SUBSCRIPTION_FEATURES: SubscriptionFeature[] = [
   { name: "Quality Standards", free: false, basic: true, professional: true, enterprise: true },
   { name: "Team Profiles", free: false, basic: "5", professional: "10", enterprise: "Unlimited" },
 
-  { name: "Inquiry Form", free: "Basic", basic: "Standard", professional: "Advanced", enterprise: "Custom" },
+  // { name: "Inquiry Form", free: "Basic", basic: "Standard", professional: "Advanced", enterprise: "Custom" },
 
   { name: "Verified Supplier Badge", free: false, basic: "Silver", professional: "Gold", enterprise: "Platinum" },
 
@@ -72,7 +72,7 @@ export const SUBSCRIPTION_FEATURES: SubscriptionFeature[] = [
   { name: "Article Banner", free: false, basic: false, professional: "1 / Rotational", enterprise: "1 / Rotational" },
   { name: "Sticky Banner", free: false, basic: false, professional: false, enterprise: "1 / Rotational" },
 
-  { name: "CEO Video Interview", free: false, basic: false, professional: false, enterprise: "1/Year" },
+  // { name: "CEO Video Interview", free: false, basic: false, professional: false, enterprise: "1/Year" },
   { name: "Factory Visit Feature", free: false, basic: false, professional: false, enterprise: "1/Year" },
   { name: "Product Demo Video on Home Page", free: false, basic: false, professional: "1/Year", enterprise: "4/ Year" },
 

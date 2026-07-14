@@ -38,7 +38,29 @@ export default function MagazineArchive() {
     });
 }, []);
 
-  if (loading) return <p className="p-10">Loading...</p>
+  if (loading) {
+    return (
+      <section className="bg-[#f2f2f2] py-20">
+        <div className="max-w-[1200px] mx-auto px-6 space-y-12 animate-pulse">
+          <div className="flex justify-between items-center mb-16">
+            <div className="h-10 w-44 bg-neutral-300 rounded" />
+            <div className="h-10 w-48 bg-neutral-300 rounded" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-[3fr_1fr] gap-20">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-20">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex flex-col items-center space-y-4">
+                  <div className="w-[200px] h-[300px] bg-neutral-300 rounded shadow-md" />
+                  <div className="h-5 w-32 bg-neutral-300 rounded" />
+                  <div className="h-4 w-20 bg-neutral-300 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="bg-[#f2f2f2] py-20">

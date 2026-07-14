@@ -7,6 +7,7 @@ import SupplierFilters from "./SupplierFilters"
 
 import StandOut from "@/components/suppliers/StandOut";
 import Banner from "@/components/Banners/Banner";
+import { Skeleton } from "@/components/ui/skeleton"
 
 type Supplier = {
   id: number
@@ -223,11 +224,23 @@ export default function SuppliersPage() {
 
             {/* RESULTS */}
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0b3954] mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading suppliers...</p>
-                </div>
+              <div className="space-y-4 animate-pulse">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-white border border-[#dee2e6] rounded-md p-4 sm:p-6 flex flex-col lg:flex-row gap-6">
+                    {/* Logo skeleton */}
+                    <Skeleton className="w-full lg:w-40 h-24 rounded shrink-0" />
+                    
+                    {/* Content skeleton */}
+                    <div className="flex-1 space-y-3">
+                      <Skeleton className="h-6 w-1/3 rounded" />
+                      <Skeleton className="h-4 w-1/4 rounded" />
+                      <div className="space-y-2 pt-2">
+                        <Skeleton className="h-4 w-full rounded" />
+                        <Skeleton className="h-4 w-5/6 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : suppliers.length > 0 ? (
               <div className="space-y-4">

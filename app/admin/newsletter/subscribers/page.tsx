@@ -26,16 +26,13 @@ export default function SubscribersPage() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     loadSubscribers();
 
-    // Check if redirected from subscription
     const subscribed = searchParams.get("subscribed");
     if (subscribed === "true") {
       setSuccessMessage("✅ New subscriber added successfully!");
-      // Clear the URL parameter
       window.history.replaceState({}, "", "/admin/newsletter/subscribers");
     }
   }, []);
@@ -44,16 +41,13 @@ export default function SubscribersPage() {
     try {
       setLoading(true);
       setError("");
-      setDebugInfo(null);
 
       const token = localStorage.getItem("token");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
-      console.log("📡 Fetching subscribers from:", `${apiUrl}/api/newsletter/subscribers`);
-      console.log("🔑 Token present:", !!token);
-
       if (!token) {
         setError("❌ Authentication required. Please login.");
+        setLoading(false);
         return;
       }
 
@@ -67,36 +61,15 @@ export default function SubscribersPage() {
         }
       );
 
-      console.log("📊 Response status:", res.status);
-
       const data = await res.json();
-      console.log("📦 Raw response data:", data);
 
       if (!res.ok) {
         throw new Error(data.error || `Failed with status: ${res.status}`);
       }
 
-      // Handle both array and paginated response
       const subscribersData = Array.isArray(data) ? data : data.subscribers || [];
-
-      console.log(`✅ Loaded ${subscribersData.length} subscribers`);
-
       setSubscribers(subscribersData);
-
-      // Store debug info
-      setDebugInfo({
-        totalCount: subscribersData.length,
-        firstThree: subscribersData.slice(0, 3).map((s: Subscriber) => ({
-          id: s.id,
-          name: s.fullName,
-          email: s.email,
-          status: s.status
-        })),
-        sampleData: subscribersData.length > 0 ? subscribersData[0] : null
-      });
-
     } catch (err: any) {
-      console.error("❌ Error loading subscribers:", err);
       setError(err.message || "Failed to load subscribers");
     } finally {
       setLoading(false);
@@ -127,8 +100,7 @@ export default function SubscribersPage() {
       setSubscribers((prev) => prev.filter((item) => item.id !== id));
       setSuccessMessage(`✅ Subscriber deleted successfully!`);
       setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      console.error("Delete error:", err);
+    } catch {
       alert("Something went wrong");
     }
   }
@@ -146,13 +118,10 @@ export default function SubscribersPage() {
 
   if (loading) {
     return (
-      <div className="p-8 space-y-4">
+      <div className="flex justify-center items-center min-h-[400px]">
         <div className="flex items-center gap-3">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          <span>Loading subscribers...</span>
-        </div>
-        <div className="text-sm text-gray-500">
-          Fetching data from {process.env.NEXT_PUBLIC_API_URL}/api/newsletter/subscribers
+          <span className="text-gray-500">Loading subscribers...</span>
         </div>
       </div>
     );
@@ -161,19 +130,17 @@ export default function SubscribersPage() {
   return (
     <div className="space-y-6">
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-2">
-          <span className="text-xl">✅</span>
+        <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-lg">
           {successMessage}
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg flex items-center gap-2">
-          <span className="text-xl">❌</span>
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg flex items-center justify-between">
+          <span>{error}</span>
           <button
             onClick={loadSubscribers}
-            className="ml-auto text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
+            className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
           >
             Retry
           </button>
@@ -189,7 +156,7 @@ export default function SubscribersPage() {
             </span>
           </h1>
           <p className="text-gray-500 mt-1">
-            {filtered.length} subscribers shown (filtered)
+            {filtered.length} subscribers shown
           </p>
         </div>
 
@@ -221,33 +188,6 @@ export default function SubscribersPage() {
         </div>
       </div>
 
-      {/* Debug Info */}
-      {debugInfo && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
-          <details>
-            <summary className="font-semibold cursor-pointer text-gray-700">
-              🔍 Debug Info (Click to expand)
-            </summary>
-            <div className="mt-2 space-y-2">
-              <p><strong>Total subscribers:</strong> {debugInfo.totalCount}</p>
-              <p><strong>First 3 subscribers:</strong></p>
-              <pre className="bg-white p-2 rounded border text-xs overflow-auto">
-                {JSON.stringify(debugInfo.firstThree, null, 2)}
-              </pre>
-              {debugInfo.sampleData && (
-                <>
-                  <p><strong>Sample subscriber data:</strong></p>
-                  <pre className="bg-white p-2 rounded border text-xs overflow-auto">
-                    {JSON.stringify(debugInfo.sampleData, null, 2)}
-                  </pre>
-                </>
-              )}
-            </div>
-          </details>
-        </div>
-      )}
-
-      {/* Search */}
       <div className="relative">
         <input
           className="border rounded-lg px-4 h-11 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 pl-10"
@@ -293,9 +233,6 @@ export default function SubscribersPage() {
                     <div className="space-y-2">
                       <div className="text-4xl">📭</div>
                       <p>No subscribers found</p>
-                      <p className="text-xs text-gray-400">
-                        Try adding a subscriber or check your API connection
-                      </p>
                     </div>
                   ) : (
                     <div className="space-y-2">

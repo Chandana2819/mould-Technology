@@ -193,6 +193,13 @@ export default function AdminLayout({
             icon={<Folder size={18} />}
             active={pathname === "/admin/mmt-chats"}
           />
+
+          <SidebarLink
+  href="/admin/newsletter"
+  label="Newsletter"
+  icon={<Mail size={18} />}
+  active={pathname.startsWith("/admin/newsletter")}
+/>
         </nav>
 
         {/* FOOTER */}

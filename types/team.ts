@@ -1,15 +1,17 @@
 // types/team.ts
 
-export type TeamMember = {
+export interface TeamMember {
     id: number;
-    userId: number;
     companyId: number;
-    status: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'FORMER';
+    userId: number;
     designation: string;
-    department: string;
-    employmentType: string;
-    startDate: string;
+    department?: string;
+    employmentType?: string;
+    startDate?: string;
     endDate?: string;
+    status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'FORMER';
+    approvedById?: number;
+    approvedAt?: string;
     rejectionReason?: string;
     createdAt: string;
     updatedAt: string;
@@ -19,38 +21,30 @@ export type TeamMember = {
         email: string;
         avatarUrl?: string;
         headline?: string;
+        location?: string;
     };
     company: {
         id: number;
         name: string;
         slug: string;
         logoUrl?: string;
+        tagline?: string;
+        isVerified?: boolean;
     };
-};
+    approvedBy?: {
+        id: number;
+        fullName: string;
+    };
+}
 
-export type TeamRequest = {
-    companyId: number;
-    designation: string;
-    department: string;
-    employmentType: string;
-    startDate: string;
-};
-
-export type CompanySearchResult = {
+export interface CompanySearchResult {
     id: number;
     name: string;
     slug: string;
     logoUrl?: string;
     tagline?: string;
     industry?: {
+        id: number;
         name: string;
     };
-};
-
-export type TeamStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'FORMER';
-
-export type TeamStats = {
-    totalMembers: number;
-    pendingRequests: number;
-    verifiedMembers: number;
-};
+}

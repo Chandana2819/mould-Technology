@@ -3,9 +3,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getPendingRequests, getTeamMembers, approveMember, rejectMember } from '@/lib/teamService';
+import { getPendingRequests, getTeamMembers, approveTeamMember, rejectTeamMember } from '@/lib/teamService';
 import { TeamMember } from '@/types/team';
-import PendingRequestCard from '@/components/teams/PendingRequestCard'
+import PendingRequestCard from '@/components/teams/PendingRequestCard';
 import TeamMemberCard from '@/components/teams/TeamMemberCard';
 
 export default function RecruiterTeamPage() {
@@ -14,6 +14,7 @@ export default function RecruiterTeamPage() {
     const [members, setMembers] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [debugInfo, setDebugInfo] = useState<any>(null);
 
     useEffect(() => {
         loadData();
@@ -23,16 +24,42 @@ export default function RecruiterTeamPage() {
         try {
             setLoading(true);
             setError(null);
+            setDebugInfo(null);
 
-            const [pendingData, membersData] = await Promise.all([
-                getPendingRequests(),
-                getTeamMembers(),
-            ]);
+            console.log('📡 Fetching pending requests...');
+            const pendingData = await getPendingRequests();
+            console.log('📦 Pending data:', pendingData);
+            console.log('📦 Is array?', Array.isArray(pendingData));
 
-            setPendingRequests(pendingData);
-            setMembers(membersData);
+            console.log('📡 Fetching team members...');
+            const membersData = await getTeamMembers();
+            console.log('📦 Members data:', membersData);
+            console.log('📦 Is array?', Array.isArray(membersData));
+
+            // Store debug info
+            setDebugInfo({
+                pendingRaw: pendingData,
+                pendingType: typeof pendingData,
+                pendingIsArray: Array.isArray(pendingData),
+                membersRaw: membersData,
+                membersType: typeof membersData,
+                membersIsArray: Array.isArray(membersData),
+            });
+
+            // ✅ Always ensure we're setting arrays
+            const pendingArray = Array.isArray(pendingData) ? pendingData : [];
+            const membersArray = Array.isArray(membersData) ? membersData : [];
+
+            setPendingRequests(pendingArray);
+            setMembers(membersArray);
+
+            console.log(`✅ Loaded ${pendingArray.length} pending requests and ${membersArray.length} members`);
         } catch (err: any) {
-            setError(err.message);
+            console.error('❌ Error loading team data:', err);
+            setError(err.message || 'Failed to load data');
+            // ✅ Set empty arrays on error
+            setPendingRequests([]);
+            setMembers([]);
         } finally {
             setLoading(false);
         }
@@ -40,19 +67,19 @@ export default function RecruiterTeamPage() {
 
     const handleApprove = async (id: number) => {
         try {
-            await approveMember(id);
+            await approveTeamMember(id);
             await loadData();
         } catch (err: any) {
-            alert(err.message);
+            alert(err.message || 'Failed to approve member');
         }
     };
 
     const handleReject = async (id: number, reason: string) => {
         try {
-            await rejectMember(id, reason);
+            await rejectTeamMember(id, reason);
             await loadData();
         } catch (err: any) {
-            alert(err.message);
+            alert(err.message || 'Failed to reject member');
         }
     };
 
@@ -81,9 +108,36 @@ export default function RecruiterTeamPage() {
                 </button>
             </div>
 
+            {/* Debug Info */}
+            {debugInfo && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
+                    <details>
+                        <summary className="font-semibold cursor-pointer text-gray-700">
+                            🔍 Debug Info (Click to expand)
+                        </summary>
+                        <div className="mt-2 space-y-2">
+                            <p>
+                                <strong>Pending Data:</strong>
+                                {debugInfo.pendingIsArray ? '✅ Array' : '❌ Not an array'}
+                            </p>
+                            <pre className="bg-white p-2 rounded border text-xs overflow-auto max-h-40">
+                                {JSON.stringify(debugInfo.pendingRaw, null, 2)}
+                            </pre>
+                            <p>
+                                <strong>Members Data:</strong>
+                                {debugInfo.membersIsArray ? '✅ Array' : '❌ Not an array'}
+                            </p>
+                            <pre className="bg-white p-2 rounded border text-xs overflow-auto max-h-40">
+                                {JSON.stringify(debugInfo.membersRaw, null, 2)}
+                            </pre>
+                        </div>
+                    </details>
+                </div>
+            )}
+
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg">
-                    {error}
+                    ❌ {error}
                 </div>
             )}
 
@@ -92,8 +146,8 @@ export default function RecruiterTeamPage() {
                     <button
                         onClick={() => setActiveTab('pending')}
                         className={`pb-4 px-1 border-b-2 transition ${activeTab === 'pending'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         Pending Requests ({pendingRequests.length})
@@ -101,8 +155,8 @@ export default function RecruiterTeamPage() {
                     <button
                         onClick={() => setActiveTab('members')}
                         className={`pb-4 px-1 border-b-2 transition ${activeTab === 'members'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         Team Members ({members.length})

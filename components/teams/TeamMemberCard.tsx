@@ -39,9 +39,11 @@ export default function TeamMemberCard({ member, showCompany = false }: Props) {
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                             {member.employmentType}
                         </span>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            Joined {new Date(member.startDate).getFullYear()}
-                        </span>
+                        {member.startDate && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                Joined {new Date(member.startDate).getFullYear()}
+                            </span>
+                        )}
                     </div>
                     {showCompany && member.company && (
                         <div className="mt-2 flex items-center gap-2">

@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { searchCompanies } from '@/lib/teamService';
+import * as teamService from '@/lib/teamService';
 import { CompanySearchResult } from '@/types/team';
 
 interface Props {
@@ -21,7 +21,18 @@ export default function CompanySearch({ onSelect }: Props) {
     useEffect(() => {
         const delayDebounce = setTimeout(() => {
             if (query.length >= 2) {
-                searchCompanies(query)
+                const searchFunction =
+                    (teamService as any).searchCompanies ??
+                    (teamService as any).default;
+
+                if (!searchFunction) {
+                    console.error('searchCompanies not found in teamService module');
+                    setResults([]);
+                    setLoading(false);
+                    return;
+                }
+
+                Promise.resolve(searchFunction(query))
                     .then(setResults)
                     .catch(console.error)
                     .finally(() => setLoading(false));

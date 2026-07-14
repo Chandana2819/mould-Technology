@@ -23,6 +23,7 @@ import RecruiterAnalyticsCharts, {
 } from "@/components/recruiter/RecruiterAnalyticsCharts"
 import type { JobPostingEligibility } from "@/lib/jobPosting"
 import type { ContentLimitEligibility } from "@/lib/packageLimits"
+import TeamManagementTab from "@/components/recruiter/TeamManagementTab"
 
 /* ================= TYPES ================= */
 
@@ -484,6 +485,11 @@ if (stored) {
                 </table>
               </div>
             )}
+          </div>
+
+          {/* ================= TEAM MANAGEMENT ================= */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <TeamManagementTab />
           </div>
 
           {/* ================= ARTICLES ================= */}

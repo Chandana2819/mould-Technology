@@ -5,7 +5,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
-import { getCompanyTeam, TeamMember } from '@/lib/teamService';
+import { getCompanyTeam } from '@/lib/teamService';
+import { TeamMember } from '@/types/team';
 import { Users, Calendar, Briefcase, Building2, Mail } from 'lucide-react';
 
 export default function CompanyTeamPage() {
@@ -24,7 +25,7 @@ export default function CompanyTeamPage() {
             setLoading(true);
             setError(null);
             const data = await getCompanyTeam(slug as string);
-            setMembers(Array.isArray(data) ? data : []);
+            setMembers(data);
             if (data.length > 0 && data[0].company) {
                 setCompanyName(data[0].company.name);
             }

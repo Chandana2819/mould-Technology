@@ -1,10 +1,10 @@
 "use client"
 import dynamic from "next/dynamic"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import "react-quill-new/dist/quill.snow.css"
-import { fetchJobPostingEligibility, type JobPostingEligibility } from "@/lib/jobPosting"
+import { fetchJobPostingEligibility, type JobPostingEligibility, type JobPostingEligibilityResponse } from "@/lib/jobPosting"
 import JobPostingPolicySummary from "@/components/recruiter/JobPostingPolicySummary"
 
 const ReactQuill = dynamic(() => import("react-quill-new"), {
@@ -29,7 +29,7 @@ export default function CreateJobPage() {
 
   const [loading, setLoading] = useState(false)
   const [checkingEligibility, setCheckingEligibility] = useState(true)
-  const [eligibility, setEligibility] = useState<JobPostingEligibility | null>(null)
+  const [eligibility, setEligibility] = useState<JobPostingEligibilityResponse | null>(null)
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -53,6 +53,18 @@ export default function CreateJobPage() {
     checkEligibility()
   }, [router])
 
+  const isInternship = form.employmentType === "Internship"
+
+  // 🔹 Whichever quota applies to the currently selected Employment Type.
+  // Falls back to the flat/top-level fields (job eligibility) if the
+  // backend response hasn't been updated yet, so this never crashes.
+  const activeEligibility: JobPostingEligibility | null = useMemo(() => {
+    if (!eligibility) return null
+    return isInternship ? eligibility.internship ?? eligibility : eligibility.job ?? eligibility
+  }, [eligibility, isInternship])
+
+  const blockedByLimit = !checkingEligibility && activeEligibility != null && !activeEligibility.canPost
+
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
@@ -65,6 +77,12 @@ export default function CreateJobPage() {
           ? (e.target as HTMLInputElement).checked
           : value,
     })
+
+    // Clear a stale limit-reached error message when switching Job Type,
+    // since the new type may not be blocked.
+    if (name === "employmentType") {
+      setError("")
+    }
   }
 
   function handleTitleChange(
@@ -85,6 +103,16 @@ export default function CreateJobPage() {
 
     if (!form.acceptedPolicy) {
       setError("Please read and agree to the Job Posting Policy.")
+      return
+    }
+
+    if (blockedByLimit) {
+      setError(
+        activeEligibility?.message ||
+          (isInternship
+            ? "Internship listings are not available on your current plan."
+            : "You've reached your job posting limit.")
+      )
       return
     }
 
@@ -115,7 +143,9 @@ export default function CreateJobPage() {
 
       if (!res.ok) {
         if (data.code === "JOB_POSTING_LIMIT_REACHED") {
-          setEligibility(data.eligibility ?? null)
+          setEligibility(prev => (prev ? { ...prev, job: data.eligibility } : prev))
+        } else if (data.code === "INTERNSHIP_LISTING_LIMIT_REACHED") {
+          setEligibility(prev => (prev ? { ...prev, internship: data.eligibility } : prev))
         }
         setError(data.error || "Failed to create job")
         return
@@ -146,48 +176,65 @@ export default function CreateJobPage() {
 
       {checkingEligibility ? (
         <p className="text-gray-600">Checking your job posting allowance...</p>
-      ) : !eligibility?.canPost ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <h2 className="text-lg font-semibold text-amber-900">
-            Job posting limit reached
-          </h2>
-          <p className="mt-2 text-sm text-amber-800">
-            {eligibility?.message ||
-              "You've reached your job posting limit. Upgrade your package to post more jobs."}
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/packages"
-              className="rounded-lg bg-[#004d73] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#003a59]"
-            >
-              View Packages
-            </Link>
-            <Link
-              href="/recruiter/dashboard"
-              className="rounded-lg border border-amber-200 bg-white px-5 py-2.5 text-sm font-semibold text-amber-900 hover:bg-amber-100"
-            >
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
       ) : (
         <>
-      {eligibility?.message && (
-        <p className="mb-4 text-sm text-gray-600">{eligibility.message}</p>
-      )}
-
-      {error && (
-        <div className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded">
-          {error}
-          {eligibility?.upgradeRequired && (
-            <div className="mt-3">
-              <Link href="/packages" className="font-semibold text-[#004d73] hover:underline">
-                Upgrade package →
-              </Link>
+          {/* 🔹 Quota summary — always shows BOTH allowances, regardless of
+              which Employment Type is currently selected in the form */}
+          {(eligibility?.job || eligibility?.internship) && (
+            <div className="mb-6 space-y-1 text-sm text-gray-600">
+              {eligibility?.job?.message && (
+                <p>{eligibility.job.message}</p>
+              )}
+              {eligibility?.internship?.message && (
+                <p className={!eligibility.internship.canPost ? "text-amber-700 font-medium" : undefined}>
+                  {eligibility.internship.message}
+                </p>
+              )}
             </div>
           )}
-        </div>
-      )}
+
+          {/* 🔹 Upgrade banner — reflects whichever quota (job vs internship)
+              matches the currently selected Employment Type */}
+          {blockedByLimit && (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6">
+              <h2 className="text-lg font-semibold text-amber-900">
+                {isInternship ? "Internship listing limit reached" : "Job posting limit reached"}
+              </h2>
+              <p className="mt-2 text-sm text-amber-800">
+                {activeEligibility?.message ||
+                  (isInternship
+                    ? "Internship listings are not available on your current plan. Upgrade to continue."
+                    : "You've reached your job posting limit. Upgrade your package to post more jobs.")}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/packages"
+                  className="rounded-lg bg-[#004d73] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#003a59]"
+                >
+                  View Packages
+                </Link>
+                <Link
+                  href="/recruiter/dashboard"
+                  className="rounded-lg border border-amber-200 bg-white px-5 py-2.5 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+                >
+                  Back to Dashboard
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded">
+              {error}
+              {activeEligibility?.upgradeRequired && (
+                <div className="mt-3">
+                  <Link href="/packages" className="font-semibold text-[#004d73] hover:underline">
+                    Upgrade package →
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
 
@@ -294,10 +341,14 @@ export default function CreateJobPage() {
 
           <div className="flex justify-start pt-2">
             <button
-              disabled={loading || !form.acceptedPolicy}
+              disabled={loading || !form.acceptedPolicy || blockedByLimit}
               className="w-full max-w-[220px] rounded-xl bg-blue-600 px-8 py-4 text-[16px] font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              {loading ? "Publishing..." : "Publish Job"}
+              {loading
+                ? "Publishing..."
+                : blockedByLimit
+                  ? "Upgrade to Continue"
+                  : "Publish Job"}
             </button>
           </div>
         </div>

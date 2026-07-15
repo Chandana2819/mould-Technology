@@ -88,6 +88,30 @@ export default function TeamManagementTab() {
         loadData();
     }, []);
 
+    function getStoredCompanyId() {
+        try {
+            const storedUser = localStorage.getItem('user');
+            if (!storedUser) return null;
+
+            const user = JSON.parse(storedUser);
+            const companyId = Number(user?.companyId);
+
+            return Number.isFinite(companyId) && companyId > 0 ? companyId : null;
+        } catch {
+            return null;
+        }
+    }
+
+    function buildTeamUrl(path: string, companyId: number | null) {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}${path}`);
+
+        if (companyId) {
+            url.searchParams.set('companyId', String(companyId));
+        }
+
+        return url.toString();
+    }
+
     async function loadData() {
         try {
             setLoading(true);
@@ -95,10 +119,11 @@ export default function TeamManagementTab() {
             setSuccessMessage(null);
 
             const token = localStorage.getItem('token');
+            const companyId = getStoredCompanyId();
             console.log('🔍 Fetching team data...');
 
             // Fetch pending requests
-            const pendingRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/team/pending`, {
+            const pendingRes = await fetch(buildTeamUrl('/api/team/pending', companyId), {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
@@ -123,7 +148,7 @@ export default function TeamManagementTab() {
             setPendingRequests(pending);
 
             // Fetch team members
-            const membersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/team/members`, {
+            const membersRes = await fetch(buildTeamUrl('/api/team/members', companyId), {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',

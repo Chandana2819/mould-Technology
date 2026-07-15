@@ -13,6 +13,7 @@ import {
   FolderOpen,
   Crown,
   CreditCard,
+  Inbox
 } from "lucide-react"
 import { useRecruiterGuard } from "@/lib/useRecruiterGuard"
 import Image from "next/image"
@@ -318,6 +319,8 @@ if (stored) {
                       ? "Free tier"
                       : "Active"
               }
+              actionHref={(!dashboard.subscription || dashboard.subscription.plan === "free") ? "/packages" : undefined}
+              actionLabel={(!dashboard.subscription || dashboard.subscription.plan === "free") ? "Upgrade Plan" : undefined}
             />
             <KpiCard
               title="Job Slots Left"
@@ -387,7 +390,7 @@ if (stored) {
           {/* QUICK ACTIONS */}
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-            <div className="grid md:grid-cols-4 gap-4">
+            <div className="grid md:grid-cols-5 gap-4">
               <Link
                 href="/recruiter/jobs"
                 className="group p-5 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100 hover:border-blue-200"
@@ -436,6 +439,17 @@ if (stored) {
                   desc={formatProductQuickDesc(dashboard.productListings)}
                 />
               </Link>
+
+              <Link
+  href="/recruiter/leads"
+  className="group p-5 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100 hover:border-purple-200"
+>
+  <ActionCard
+    icon={<Inbox className="text-purple-600 group-hover:scale-110 transition-transform" />}
+    title="Leads"
+    desc="View RFQ requests"
+  />
+</Link>
             </div>
           </div>
 
@@ -720,12 +734,19 @@ if (stored) {
   Edit Profile
 </Link>
 
-            <Link
-              href="/packages"
-              className="block mt-3 text-sm border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              {dashboard.subscription?.plan === "free" ? "Upgrade Plan" : "Manage Packages"}
-            </Link>
+            <p className="text-sm text-gray-500 mt-3">
+  Current Plan:{" "}
+  <span className="font-medium text-gray-700">
+    {dashboard.subscription?.displayPlanLabel ?? dashboard.subscription?.planLabel ?? "Free"}
+  </span>
+</p>
+{/* 
+<Link
+  href="/packages"
+  className="block mt-2 text-sm border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors"
+>
+  {dashboard.subscription?.plan === "free" ? "Upgrade Plan" : "Manage Packages"}
+</Link> */}
 
           </div>
 
@@ -816,12 +837,16 @@ function KpiCard({
   icon,
   color,
   subtitle,
+  actionHref,
+  actionLabel,
 }: {
   title: string
   value: number | string
   icon: React.ReactNode
   color: string
   subtitle?: string
+  actionHref?: string
+  actionLabel?: string
 }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex justify-between items-start hover:shadow-md transition-shadow">
@@ -829,6 +854,14 @@ function KpiCard({
         <p className="text-sm text-gray-600 font-medium">{title}</p>
         <h3 className="text-3xl font-bold text-gray-900 mt-2">{value}</h3>
         {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+        {actionHref && actionLabel && (
+  <Link
+    href={actionHref}
+    className="inline-block mt-2 text-[14px] font-medium text-blue-600 hover:text-blue-700 whitespace-nowrap"
+  >
+    {actionLabel} →
+  </Link>
+)}
       </div>
       <div
         className={`w-14 h-14 rounded-xl flex items-center justify-center text-white shadow-lg ${color}`}

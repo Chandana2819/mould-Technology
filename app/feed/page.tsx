@@ -145,9 +145,10 @@ export default function PublicFeedPage() {
             <JobFeed isPublic />
           </div>
 
-          {/* Sidebar ads */}
+          
+           {/* Sidebar ads */}
           <aside className="hidden lg:block" aria-label="Sponsored">
-            <div className="sticky top-6">
+            <div className="sticky top-24">
               <Banner placement="JOB_RIGHT" />
             </div>
           </aside>

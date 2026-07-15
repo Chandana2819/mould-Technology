@@ -10,11 +10,20 @@ export type JobPostingEligibility = {
   isUnlimited?: boolean;
   upgradeRequired?: boolean;
   message?: string;
+  reason?: string;
+};
+
+// 🔹 Backend now returns both quotas in one response:
+// top-level fields = job eligibility (kept for backward compatibility),
+// plus explicit `.job` and `.internship` breakdowns.
+export type JobPostingEligibilityResponse = JobPostingEligibility & {
+  job: JobPostingEligibility;
+  internship: JobPostingEligibility;
 };
 
 export async function fetchJobPostingEligibility(
   token: string
-): Promise<JobPostingEligibility> {
+): Promise<JobPostingEligibilityResponse> {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/jobs/recruiter/posting-eligibility`,
     {

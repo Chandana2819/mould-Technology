@@ -54,8 +54,8 @@ export const SUBSCRIPTION_FEATURES: SubscriptionFeature[] = [
   { name: "Featured Job", free: false, basic: false, professional: "10 Days", enterprise: "30 Days" },
   { name: "Company Career Page", free: false, basic: false, professional: false, enterprise: true },
   { name: "Resume Download", free: false, basic: "10", professional: "20", enterprise: "Unlimited" },
-  { name: "RFQ Leads", free: false, basic: "10/PER MONTH", professional: "20/PER MONTH", enterprise: "Unlimited" },
-  { name: "Quote Request Form", free: false, basic: false, professional: true, enterprise: true },
+  { name: "RFQ Leads", free: false, basic: "10/month", professional: "20/per month", enterprise: "unlimited" },
+  { name: "Quote Request Form", free: false, basic: "yes", professional: "yes", enterprise: "Yes" },
   { name: "Lead Notifications", free: "Email", basic: "Email", professional: "Email+SMS", enterprise: "Email+Whatsapp+Realtime" },
 
   { name: "Search Ranking", free: "Standard", basic: "Priority", professional: "Top Results", enterprise: "#1 Priority" },

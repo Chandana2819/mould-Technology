@@ -1,5 +1,4 @@
-// app/supplier/[slug]/page.tsx (or wherever your supplier page is)
-
+// app/supplier/[slug]/page.tsx
 import CompanyArticlesCarousel from "@/components/CompanyArticlesCarousel"
 import SocialLinksTracker from "@/components/SocialLinksTracker"
 import QuoteRequestButton from "@/components/QuteRequestForm"
@@ -340,7 +339,7 @@ export default async function SupplierShowroomPage({
           factoryGallery={supplier.factoryGallery}
           productCatalogues={supplier.productCatalogues}
           isPaid={isPaid}
-          companySlug={companySlug} // ← This is the key fix
+          companySlug={companySlug}
         />
 
         {articles.length > 0 && (

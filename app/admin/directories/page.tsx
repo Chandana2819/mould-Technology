@@ -36,35 +36,35 @@ export default function AdminDirectoriesPage() {
 
   /* ================= FETCH ================= */
 
- useEffect(() => {
-  if (!token) return;
+  useEffect(() => {
+    if (!token) return;
 
-  fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/suppliers/admin`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then(res => res.json())
-    .then(data => {
-      console.log("API RESPONSE:", data);
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/suppliers/admin`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then(res => res.json())
+      .then(data => {
+        console.log("API RESPONSE:", data);
 
-      const rows = Array.isArray(data)
-        ? data.map((d: any) => ({
+        const rows = Array.isArray(data)
+          ? data.map((d: any) => ({
             ...d,
             company: d.Company,
             submittedBy: d.User_SupplierDirectory_submittedByIdToUser,
             approvedBy: d.User_SupplierDirectory_approvedByIdToUser,
           }))
-        : [];
+          : [];
 
-      setDirectories(rows);
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error(err);
-      setLoading(false);
-    });
-}, [token]);
+        setDirectories(rows);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, [token]);
 
   /* ================= STATS ================= */
 
@@ -109,42 +109,42 @@ export default function AdminDirectoriesPage() {
     <div className="min-h-screen bg-[#f6f8fc] p-8">
       <div className="max-w-6xl mx-auto space-y-8">
 
-       {/* HEADER */}
-<div className="flex items-center justify-between">
-  <div>
-    <h1 className="text-2xl font-bold">
-      Supplier Listing
-    </h1>
-    <p className="text-sm text-gray-500">
-      Review and manage supplier listing
-    </p>
-  </div>
+        {/* HEADER */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">
+              Supplier Listing
+            </h1>
+            <p className="text-sm text-gray-500">
+              Review and manage supplier listing
+            </p>
+          </div>
 
-  <div className="flex gap-3">
-    {/* OLD BUTTON */}
-    {/* <Link
+          <div className="flex gap-3">
+            {/* OLD BUTTON */}
+            {/* <Link
       href="/admin/directories/company-dashboard"
       className="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
     >
       + Create Supplier
     </Link> */}
 
-    <Link
-      href="/admin/directories/bulk-upload"
-      className="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
-    >
-      + Bulk Supplier Creation
-    </Link>
+            <Link
+              href="/admin/directories/bulk-upload"
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+            >
+              + Bulk Supplier Creation
+            </Link>
 
-    {/* ✅ NEW BUTTON */}
-    <Link
-      href="/admin/directories/full-setup"
-      className="bg-purple-600 text-white px-5 py-2 rounded-lg shadow hover:bg-purple-700 transition"
-    >
-      + Create Company Supplier Listing
-    </Link>
-  </div>
-</div>
+            {/* ✅ NEW BUTTON */}
+            <Link
+              href="/admin/directories/full-setup"
+              className="bg-purple-600 text-white px-5 py-2 rounded-lg shadow hover:bg-purple-700 transition"
+            >
+              + Create Company Supplier Listing
+            </Link>
+          </div>
+        </div>
 
 
 
@@ -205,13 +205,12 @@ export default function AdminDirectoriesPage() {
 
                     <td>
                       <span
-                        className={`text-xs font-semibold px-2 py-1 rounded ${
-                          dir.status === "APPROVED"
+                        className={`text-xs font-semibold px-2 py-1 rounded ${dir.status === "APPROVED"
                             ? "bg-green-100 text-green-700"
                             : dir.status === "PENDING"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
                       >
                         {dir.status}
                       </span>
@@ -221,7 +220,7 @@ export default function AdminDirectoriesPage() {
                     <td>{dir.submittedBy?.email || "—"}</td>
 
                     <td className="text-xs text-gray-500">
-                     {new Date(dir.createdAt).toISOString().split("T")[0]}
+                      {new Date(dir.createdAt).toISOString().split("T")[0]}
                     </td>
 
                     <td className="text-right">

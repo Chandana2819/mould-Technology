@@ -13,6 +13,7 @@ import {
   FolderOpen,
   Crown,
   CreditCard,
+  Megaphone,
 } from "lucide-react"
 import { useRecruiterGuard } from "@/lib/useRecruiterGuard"
 import Image from "next/image"
@@ -84,6 +85,7 @@ type DashboardData = {
   jobPosting?: JobPostingEligibility
   articlePosting?: ContentLimitEligibility
   productListings?: ContentLimitEligibility
+  homepageFeaturedAd?: ContentLimitEligibility
   analytics?: RecruiterAnalytics
 }
 
@@ -209,6 +211,7 @@ useEffect(() => {
         jobPosting: dashboardData.jobPosting ?? undefined,
         articlePosting: dashboardData.articlePosting ?? undefined,
         productListings: dashboardData.productListings ?? undefined,
+        homepageFeaturedAd: dashboardData.homepageFeaturedAd ?? undefined,
         analytics: dashboardData.analytics ?? undefined,
       })
 
@@ -303,7 +306,7 @@ if (stored) {
           </div>
 
           {/* KPI CARDS */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6">
             <KpiCard
               title="Current Plan"
               value={dashboard.subscription?.displayPlanLabel ?? dashboard.subscription?.planLabel ?? "Free"}
@@ -360,6 +363,23 @@ if (stored) {
                   : dashboard.productListings.isUnlimited
                     ? "Unlimited directories"
                     : `${dashboard.productListings.activeListings ?? 0} of ${dashboard.productListings.effectiveLimit} directories used`
+              }
+            />
+            <KpiCard
+              title="Homepage Featured Ads"
+              value={
+                dashboard.homepageFeaturedAd?.reason === "PLAN_NOT_ELIGIBLE"
+                  ? "🔒"
+                  : dashboard.homepageFeaturedAd?.remaining ?? 0
+              }
+              icon={<Megaphone />}
+              color="bg-gradient-to-br from-rose-500 to-rose-600"
+              subtitle={
+                dashboard.homepageFeaturedAd?.reason === "PLAN_NOT_ELIGIBLE"
+                  ? "Upgrade to Professional or Enterprise"
+                  : `${dashboard.homepageFeaturedAd?.usedThisPeriod ?? 0} of ${
+                      dashboard.homepageFeaturedAd?.effectiveLimit ?? 0
+                    } used ${dashboard.homepageFeaturedAd?.periodLabel ?? ""}`
               }
             />
             <KpiCard

@@ -7,7 +7,9 @@ import type { Post } from "../types/Post"
 import Banner from "./Banners/Banner"
 
 const ROTATE_INTERVAL = 6000
+const FADE_DURATION = 300 // ms — matches CSS transition duration below
 const PAGE_SIZE = 6 // 3 rows × 2 cols
+const PLACEHOLDER_IMAGE = "/images/placeholder-article.jpg"
 
 const BADGE_COLORS: Record<string, string> = {
   FEATURED: "bg-[#E11D48]",
@@ -28,22 +30,49 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function HomeCompanyArticles() {
   const [allPosts, setAllPosts]   = useState<Post[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [pageIndex, setPageIndex] = useState(0)
   const [fade, setFade]           = useState(true)
   const [paused, setPaused]       = useState(false)
-  const timerRef                  = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const timerRef      = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pageIndexRef   = useRef(pageIndex)
+  const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Keep a ref of the current pageIndex so the interval callback
+  // always reads the latest value without needing to be a dependency
+  // (this stops the interval from being torn down/recreated every page turn).
+  useEffect(() => {
+    pageIndexRef.current = pageIndex
+  }, [pageIndex])
 
   /* ── Fetch ── */
   useEffect(() => {
+    let cancelled = false
+
     ;(async () => {
       try {
-        const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/articles/approved`)
+        setLoading(true)
+        setLoadError(false)
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/articles/approved`)
+        if (!res.ok) throw new Error(`Request failed with status ${res.status}`)
         const data = await res.json()
-        setAllPosts(Array.isArray(data) ? data : [])
+        if (!cancelled) {
+          setAllPosts(Array.isArray(data) ? data : [])
+        }
       } catch (err) {
         console.error("Failed to load approved articles", err)
+        if (!cancelled) {
+          setAllPosts([])
+          setLoadError(true)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     })()
+
+    return () => { cancelled = true }
   }, [])
 
   /* ── Total pages ── */
@@ -58,24 +87,83 @@ export default function HomeCompanyArticles() {
     )
   }, [allPosts, pageIndex])
 
-  /* ── Auto-rotate ── */
+  /* ── Page navigation with synced fade timing ── */
   const goToPage = (next: number) => {
+    if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current)
     setFade(false)
-    setTimeout(() => {
+    fadeTimeoutRef.current = setTimeout(() => {
       setPageIndex(next % (totalPages || 1))
       setFade(true)
-    }, 300)
+    }, FADE_DURATION)
   }
 
+  /* ── Auto-rotate (single persistent interval, no teardown per page) ── */
   useEffect(() => {
     if (totalPages <= 1 || paused) return
-    timerRef.current = setInterval(() => {
-      goToPage((pageIndex + 1) % totalPages)
-    }, ROTATE_INTERVAL)
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [totalPages, pageIndex, paused])
 
-  if (!visiblePosts.length) return null
+    // Respect users who prefer reduced motion
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+
+    if (prefersReducedMotion) return
+
+    timerRef.current = setInterval(() => {
+      const next = (pageIndexRef.current + 1) % totalPages
+      goToPage(next)
+    }, ROTATE_INTERVAL)
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPages, paused])
+
+  // Clean up any pending fade timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current)
+    }
+  }, [])
+
+  /* ── Loading state ── */
+  if (loading) {
+    return (
+      <section className="pt-4 sm:pt-8 w-full">
+        <div className="max-w-[1320px] mx-auto px-4">
+          <div className="flex gap-8">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-6">
+                <div className="h-7 w-40 bg-[#F0F0F0] rounded animate-pulse" />
+                <div className="h-4 w-20 bg-[#F0F0F0] rounded animate-pulse" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-md overflow-hidden border border-[#F0F0F0] shadow-sm"
+                  >
+                    <div className="w-full aspect-[16/10] bg-[#F0F0F0] animate-pulse" />
+                    <div className="p-4 sm:p-5 flex flex-col gap-2">
+                      <div className="h-4 w-16 bg-[#F0F0F0] rounded-full animate-pulse" />
+                      <div className="h-4 w-full bg-[#F0F0F0] rounded animate-pulse" />
+                      <div className="h-3 w-2/3 bg-[#F0F0F0] rounded animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <aside className="hidden xl:block w-[300px] flex-shrink-0" aria-label="Sponsored">
+              <Banner placement="SIDEBAR" />
+            </aside>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  /* ── Nothing to show (no posts, or fetch failed) ── */
+  if (loadError || !visiblePosts.length) return null
 
   return (
     <section className="pt-4 sm:pt-8 w-full">
@@ -101,7 +189,10 @@ export default function HomeCompanyArticles() {
             </div>
 
             {/* Grid 2 × 3 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 gap-6"
+              aria-live="polite"
+            >
               {visiblePosts.map((post, i) => {
                 const slug         = typeof post.category === "object" ? post.category?.slug || "" : ""
                 const categoryName = typeof post.category === "object" ? post.category?.name || "" : ""
@@ -112,15 +203,22 @@ export default function HomeCompanyArticles() {
                 if (badge) {
                   tagClass = BADGE_COLORS[badge.toUpperCase()] || "bg-[#6B7280]"
                 } else {
-                  const match = Object.keys(CATEGORY_COLORS).find((k) =>
-                    slug.toLowerCase().includes(k)
-                  )
+                  // Match whole slug segments (split on "-") rather than raw substring
+                  // matching, so e.g. "tech" doesn't falsely match inside an unrelated slug.
+                  const slugParts = slug.toLowerCase().split("-")
+                  const match = Object.keys(CATEGORY_COLORS).find((k) => {
+                    const keyParts = k.split("-")
+                    return keyParts.every((part) => slugParts.includes(part))
+                  })
                   if (match) tagClass = CATEGORY_COLORS[match]
                 }
 
-                const imageUrl = post.imageUrl?.startsWith("http")
-                  ? post.imageUrl
-                  : `${process.env.NEXT_PUBLIC_API_URL}${post.imageUrl}`
+                const rawImageUrl = post.imageUrl?.trim()
+                const imageUrl = !rawImageUrl
+                  ? PLACEHOLDER_IMAGE
+                  : rawImageUrl.startsWith("http")
+                    ? rawImageUrl
+                    : `${process.env.NEXT_PUBLIC_API_URL}${rawImageUrl}`
 
                 const formattedDate = post.createdAt
                   ? new Date(post.createdAt).toLocaleDateString("en-US", {
@@ -132,19 +230,25 @@ export default function HomeCompanyArticles() {
                   <article
                     key={`${post.id}-${i}`}
                     className={`bg-white rounded-md overflow-hidden border border-[#F0F0F0] shadow-sm
-                      transition-all duration-500
+                      transition-all duration-300
                       ${fade ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
                   >
                     {/* Image */}
                     <Link
                       href={`/post/${post.slug}`}
-                      className="block relative w-full aspect-[16/10] overflow-hidden"
+                      className="block relative w-full aspect-[16/10] overflow-hidden bg-[#F0F0F0]"
                     >
                       <Image
                         src={imageUrl}
-                        alt={post.title}
+                        alt={post.title || "Article image"}
                         fill
                         className="object-cover transition-transform duration-500 hover:scale-105"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          if (target.src !== window.location.origin + PLACEHOLDER_IMAGE) {
+                            target.src = PLACEHOLDER_IMAGE
+                          }
+                        }}
                       />
                     </Link>
 
@@ -211,6 +315,7 @@ export default function HomeCompanyArticles() {
                     key={i}
                     onClick={() => goToPage(i)}
                     aria-label={`Go to page ${i + 1}`}
+                    aria-current={i === pageIndex ? "true" : undefined}
                     className={`rounded-full transition-all duration-300
                       ${i === pageIndex
                         ? "w-6 h-2 bg-[#0073FF]"

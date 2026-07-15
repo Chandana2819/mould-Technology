@@ -14,6 +14,9 @@ export type ContentLimitEligibility = {
 
   maxCoverImages?: number
   allowWhatsapp?: boolean
+
+  reason?: string;
+  usedThisPeriod?: number;
 };
 
 export async function fetchArticlePostingEligibility(

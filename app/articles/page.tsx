@@ -150,9 +150,9 @@ export default async function ArticlesPage() {
         {/* BOTTOM NAV */}
         <div className="bg-[#0F5B78]">
           <div className="max-w-[1320px] mx-auto flex gap-10 px-10 py-4 text-white text-sm font-semibold">
-            <Link href="/features">FEATURES</Link>
+            <Link href="#features">FEATURES</Link>
             <Link href="/columns">COLUMNS</Link>
-            <Link href="/archive">ARCHIVE</Link>
+            <Link href="#archive">ARCHIVE</Link>
           </div>
         </div>
       </section>
@@ -161,7 +161,10 @@ export default async function ArticlesPage() {
 
 
       {/* ================= IN THIS ISSUE ================= */}
-      <section className="max-w-[1320px] mx-auto px-6 py-14">
+      <section
+        id="features"
+        className="max-w-[1320px] mx-auto px-6 py-14 scroll-mt-24"
+      >
         <h2 className="text-[32px] font-bold text-[#003B5C] mb-10">
           In this Issue
         </h2>
@@ -218,7 +221,10 @@ export default async function ArticlesPage() {
       </section>
 
       {/* ================= ARCHIVE GRID ================= */}
-      <section className="max-w-7xl mx-auto px-6 py-10">
+      <section
+        id="archive"
+        className="max-w-7xl mx-auto px-6 py-10 scroll-mt-24"
+      >
         <h2 className="text-2xl font-bold text-[#003B5C] mb-8">
           Archive
         </h2>

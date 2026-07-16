@@ -537,25 +537,57 @@ export default function EditDirectoryPage() {
       </div>
 
       {/* DESCRIPTION */}
-      <div>
-        <label className="label" htmlFor="description">Description</label>
-        <textarea
-          id="description"
-          name="description"
-          rows={4}
-          value={directory.description || ""}
-          onChange={(e) => setDirectory({ ...directory, description: e.target.value })}
-          className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          placeholder="Enter your description..."
-        />
-        {profileLimits?.descriptionLimit !== null && profileLimits?.descriptionLimit !== undefined && (
-          <p className="text-xs text-gray-400 mt-1">
-            {profileLimits.descriptionLimit === null 
-              ? "Unlimited words on your plan." 
-              : `Maximum ${profileLimits.descriptionLimit} words on your plan.`}
-          </p>
-        )}
-      </div>
+      {(() => {
+        const wordLimit: number | null =
+          typeof profileLimits?.descriptionLimit === "number"
+            ? profileLimits.descriptionLimit
+            : null;
+        const wordCount = directory.description
+          ? directory.description.trim().split(/\s+/).filter(Boolean).length
+          : 0;
+        const atLimit = wordLimit !== null && wordCount >= wordLimit;
+
+        return (
+          <div>
+            <label className="label" htmlFor="description">Description</label>
+            <textarea
+              id="description"
+              name="description"
+              rows={4}
+              value={directory.description || ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (wordLimit !== null) {
+                  const words = raw.trimStart().split(/\s+/);
+                  if (words.filter(Boolean).length > wordLimit) {
+                    const truncated = words.slice(0, wordLimit).join(" ");
+                    setDirectory({ ...directory, description: truncated });
+                    return;
+                  }
+                }
+                setDirectory({ ...directory, description: raw });
+              }}
+              className={`w-full rounded-md border p-2 text-sm focus:outline-none focus:ring-1 ${
+                atLimit
+                  ? "border-red-400 focus:border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+              }`}
+              placeholder="Enter your description..."
+            />
+            <div className="flex items-center justify-between mt-1">
+              {wordLimit !== null ? (
+                <p className={`text-xs ml-auto ${atLimit ? "text-red-500 font-medium" : "text-gray-400"}`}>
+                  {wordCount} / {wordLimit} words{atLimit ? " — limit reached" : ""}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400 ml-auto">
+                  {wordCount} word{wordCount !== 1 ? "s" : ""} · Unlimited on your plan
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
 
       {/* LOGO */}

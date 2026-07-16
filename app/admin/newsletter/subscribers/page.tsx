@@ -31,6 +31,7 @@ type Subscriber = {
   smsSubscribed: boolean;
   status: "ACTIVE" | "UNSUBSCRIBED" | "BLOCKED";
   createdAt: string;
+  plan?: string;
 };
 
 const SOURCE_FILTER_OPTIONS: { value: string; label: string }[] = [
@@ -46,6 +47,7 @@ export default function SubscribersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("ALL");
+  const [planFilter, setPlanFilter] = useState("ALL");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -138,9 +140,13 @@ export default function SubscribersPage() {
           ? item.source === "COMPANY_PROFILE" || !!item.companyName
           : item.source === selectedFilter);
 
-      return matchesSearch && matchesFilter;
+      const matchesPlan =
+        planFilter === "ALL" ||
+        (item.plan || "free").toLowerCase() === planFilter.toLowerCase();
+
+      return matchesSearch && matchesFilter && matchesPlan;
     });
-  }, [search, selectedFilter, subscribers]);
+  }, [search, selectedFilter, planFilter, subscribers]);
 
   if (loading) {
     return (
@@ -266,6 +272,18 @@ export default function SubscribersPage() {
             </option>
           ))}
         </select>
+
+        <select
+          value={planFilter}
+          onChange={(e) => setPlanFilter(e.target.value)}
+          className="border rounded-lg px-4 h-11 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+        >
+          <option value="ALL">All Plans</option>
+          <option value="FREE">Free</option>
+          <option value="BASIC">Basic</option>
+          <option value="PROFESSIONAL">Professional</option>
+          <option value="ENTERPRISE">Enterprise</option>
+        </select>
       </div>
 
       <div className="overflow-auto rounded-xl border">
@@ -278,6 +296,7 @@ export default function SubscribersPage() {
               <th className="p-3 text-left">Phone</th>
               <th className="p-3 text-left">Company</th>
               <th className="p-3 text-left">Source</th>
+              <th className="p-3 text-left">Plan</th>
               <th className="p-3 text-left">Frequency</th>
               <th className="p-3 text-left">Channels</th>
               <th className="p-3 text-left">Status</th>
@@ -288,7 +307,7 @@ export default function SubscribersPage() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center p-10 text-gray-500">
+                <td colSpan={11} className="text-center p-10 text-gray-500">
                   {subscribers.length === 0 ? (
                     <div className="space-y-2">
                       <div className="text-4xl">📭</div>
@@ -302,6 +321,7 @@ export default function SubscribersPage() {
                         onClick={() => {
                           setSearch("");
                           setSelectedFilter("ALL");
+                          setPlanFilter("ALL");
                         }}
                         className="text-blue-600 hover:underline"
                       >
@@ -332,6 +352,19 @@ export default function SubscribersPage() {
                   <td className="p-3">
                     <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
                       {item.source}
+                    </span>
+                  </td>
+                  <td className="p-3 whitespace-nowrap">
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize border ${
+                      item.plan === "enterprise"
+                        ? "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800"
+                        : item.plan === "professional"
+                        ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800"
+                        : item.plan === "basic"
+                        ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"
+                        : "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
+                    }`}>
+                      {item.plan || "free"}
                     </span>
                   </td>
                   <td className="p-3">{item.frequency}</td>

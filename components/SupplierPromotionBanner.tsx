@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import {
-    BadgeCheck,
+    // BadgeCheck,
     MapPin,
     Phone,
     Mail,
@@ -56,21 +56,21 @@ const TIER_STYLES: Record<Exclude<PlanTier, "free">, TierStyles> = {
         badgeBg: "bg-white",
         badgeText: "text-gray-700",
         accent: "border-gray-300",
-        label: "Verified Supplier",
+        label: "🥈 Verified Supplier",
         gradient: "from-gray-600 to-gray-800",
     },
     professional: {
         badgeBg: "bg-white",
         badgeText: "text-amber-700",
         accent: "border-amber-400",
-        label: "Premium Supplier",
+        label: "🥇 Premium Supplier",
         gradient: "from-amber-600 to-amber-800",
     },
     enterprise: {
         badgeBg: "bg-white",
         badgeText: "text-slate-900",
         accent: "border-slate-700",
-        label: "Enterprise Partner",
+        label: "💎 Enterprise Partner",
         gradient: "from-slate-700 to-slate-950",
     },
 };
@@ -201,7 +201,7 @@ export default function SupplierPromotionBanner({
                     <div
                         className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold shadow-lg ${tier.badgeBg} ${tier.badgeText}`}
                     >
-                        <BadgeCheck className="w-4 h-4" />
+                        {/* <BadgeCheck className="w-4 h-4" /> */}
                         {tier.label}
                     </div>
                 </div>

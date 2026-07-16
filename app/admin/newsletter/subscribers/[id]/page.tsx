@@ -15,7 +15,7 @@ export default function EditSubscriberPage() {
     name: "",
     email: "",
     phone: "",
-    source: "MANUAL",
+    source: "ADMIN",
     frequency: "MONTHLY",
     receiveEmail: true,
     receiveWhatsapp: false,
@@ -63,7 +63,7 @@ export default function EditSubscriberPage() {
         name: data.fullName || data.name || "",
         email: data.email || "",
         phone: data.phoneNumber || data.phone || "",
-        source: data.source || "MANUAL",
+        source: data.source || "ADMIN",
         frequency: data.frequency || "MONTHLY",
         receiveEmail: data.emailSubscribed ?? data.receiveEmail ?? true,
         receiveWhatsapp: data.whatsappSubscribed ?? data.receiveWhatsapp ?? false,
@@ -245,10 +245,12 @@ export default function EditSubscriberPage() {
             onChange={updateField}
             className="border w-full h-11 px-4 rounded-lg"
           >
-            <option value="MANUAL">Manual</option>
-            <option value="FORM">Newsletter Form</option>
-            <option value="COMPANY">Company Profile</option>
+            <option value="NEWSLETTER_FORM">Newsletter Form</option>
+            <option value="COMPANY_PROFILE">Company Profile</option>
             <option value="ADMIN">Admin</option>
+            <option value="IMPORT">Import</option>
+            <option value="EVENT">Event</option>
+            <option value="MAGAZINE">Magazine</option>
           </select>
         </div>
 

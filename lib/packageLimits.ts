@@ -74,3 +74,20 @@ export async function fetchProductListingEligibility(
   }
   return res.json();
 }
+
+// ✅ ADD THIS FUNCTION - It was missing
+export async function fetchArticlePostingEligibility(
+  token: string
+): Promise<ContentLimitEligibility> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/recruiter/articles/eligibility`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    }
+  );
+  if (!res.ok) {
+    throw new Error("Failed to load article eligibility");
+  }
+  return res.json();
+}

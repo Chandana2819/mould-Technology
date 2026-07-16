@@ -1,25 +1,27 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import RichTextEditor from "@/components/RichTextField"
-import UploadBox from "@/components/UploadBox"
-import { loadGeo } from "@/lib/geo"
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import RichTextEditor from "@/components/RichTextField";
+import UploadBox from "@/components/UploadBox";
+import { loadGeo } from "@/lib/geo";
 import {
   fetchProductListingEligibility,
+  fetchCompanyProfileEligibility,
   type ContentLimitEligibility,
-} from "@/lib/packageLimits"
+  type CompanyProfileEligibility,
+} from "@/lib/packageLimits";
+import { PlanGatedSection } from "@/components/recruiter/PlanGatedSection";
 
-/* ---------------- SHARED FILE UPLOAD HELPER ---------------- */
 async function uploadFile(file: File): Promise<string> {
-  const formData = new FormData()
-  formData.append("image", file)
+  const formData = new FormData();
+  formData.append("image", file);
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload`, {
     method: "POST",
     body: formData,
-  })
-  const data = await res.json()
-  return data.imageUrl
+  });
+  const data = await res.json();
+  return data.imageUrl;
 }
 
 const PLAN_LIMITS: Record<string, Record<string, number>> = {
@@ -37,242 +39,255 @@ const PLAN_LIMITS: Record<string, Record<string, number>> = {
 }
 
 export default function EditDirectoryPage() {
-  const router = useRouter()
-  const params = useParams()
-  const id = params.id as string
+  const router = useRouter();
+  const params = useParams();
+  const id = params.id as string;
 
-  const [directory, setDirectory] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState("")
-  const [uploadingCatalogue, setUploadingCatalogue] = useState(false)
+  const [directory, setDirectory] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [uploadingCatalogue, setUploadingCatalogue] = useState(false);
   const [listingEligibility, setListingEligibility] =
-    useState<ContentLimitEligibility | null>(null)
-  const [geo, setGeo] = useState<Awaited<ReturnType<typeof loadGeo>> | null>(null)
+    useState<ContentLimitEligibility | null>(null);
+  const [profileLimits, setProfileLimits] = useState<CompanyProfileEligibility | null>(null);
+  const [geo, setGeo] = useState<Awaited<ReturnType<typeof loadGeo>> | null>(null);
 
-  const [industryLevels, setIndustryLevels] = useState<any[][]>([])
-  const [industrySelected, setIndustrySelected] = useState<number[]>([])
+  const [industryLevels, setIndustryLevels] = useState<any[][]>([]);
+  const [industrySelected, setIndustrySelected] = useState<number[]>([]);
 
   const maxCoverImages = listingEligibility?.maxCoverImages ?? 0
   const allowWhatsapp = listingEligibility?.allowWhatsapp ?? false
-  const plan = (listingEligibility?.plan || "free").toLowerCase()
-  const limits = {
-    companyGallery: PLAN_LIMITS.companyGallery[plan] ?? 0,
-    factoryGallery: PLAN_LIMITS.factoryGallery[plan] ?? 0,
-    productSupplies: PLAN_LIMITS.productSupplies[plan] ?? 5,
-    productGallery: PLAN_LIMITS.productGallery[plan] ?? 10,
-    videoGallery: PLAN_LIMITS.videoGallery[plan] ?? 0,
-    productCatalogues: PLAN_LIMITS.productCatalogues[plan] ?? 0,
-    companyBrochure: PLAN_LIMITS.companyBrochure[plan] ?? 0,
-    certifications: PLAN_LIMITS.certifications[plan] ?? 0,
-    brandsRepresented: PLAN_LIMITS.brandsRepresented[plan] ?? 0,
-    industriesServed: PLAN_LIMITS.industriesServed[plan] ?? 5,
-    exportMarkets: PLAN_LIMITS.exportMarkets[plan] ?? 0,
-  }
 
   useEffect(() => {
-    loadGeo().then(setGeo).catch(console.error)
-  }, [])
+    loadGeo().then(setGeo).catch(console.error);
+  }, []);
 
   useEffect(() => {
     async function loadEligibility() {
       try {
-        const token = localStorage.getItem("token")
-        if (!token) return
-        setListingEligibility(await fetchProductListingEligibility(token))
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        setListingEligibility(await fetchProductListingEligibility(token));
+        setProfileLimits(await fetchCompanyProfileEligibility(token));
       } catch (error) {
-        console.error("Product listing eligibility error:", error)
+        console.error("Eligibility error:", error);
       }
     }
-    loadEligibility()
-  }, [])
+    loadEligibility();
+  }, []);
 
   useEffect(() => {
     async function fetchIndustries() {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/industries`)
-      const data = await res.json()
-      const list = Array.isArray(data) ? data : data.data ?? []
-      setIndustryLevels([list])
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/industries`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.data ?? [];
+      setIndustryLevels([list]);
     }
-    fetchIndustries()
-  }, [])
+    fetchIndustries();
+  }, []);
 
   useEffect(() => {
     async function loadDirectory() {
       try {
-        const token = localStorage.getItem("token")
+        const token = localStorage.getItem("token");
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/suppliers/recruiter/directories/${id}`,
           { headers: { Authorization: `Bearer ${token}` } }
-        )
-        const data = await res.json()
+        );
+        const data = await res.json();
 
-        let coverImages = []
+        // Ensure coverImageUrl is an array
+        let coverImages = [];
         if (Array.isArray(data.coverImageUrl)) {
-          coverImages = data.coverImageUrl
-        } else if (typeof data.coverImageUrl === 'string' && data.coverImageUrl) {
-          coverImages = [data.coverImageUrl]
+          coverImages = data.coverImageUrl;
+        } else if (typeof data.coverImageUrl === "string" && data.coverImageUrl) {
+          coverImages = [data.coverImageUrl];
         } else {
-          coverImages = [""]
+          coverImages = [""];
         }
 
+        // Ensure all fields exist with proper defaults
         setDirectory({
-          ...data,
-          tradeNames: data.tradeNames || [""],
-          videoGallery: data.videoGallery || [""],
-          productSupplies: data.productSupplies || [""],
+          id: data.id,
+          name: data.name || "",
+          slug: data.slug || "",
+          phoneNumber: data.phoneNumber || "",
+          email: data.email || "",
+          description: data.description || "",
+          website: data.website || "",
+          logoUrl: data.logoUrl || "",
+          googleMapUrl: data.googleMapUrl || "",
+          tradeNames: Array.isArray(data.tradeNames) ? data.tradeNames : [""],
+          videoGallery: Array.isArray(data.videoGallery) ? data.videoGallery : [""],
+          productSupplies: Array.isArray(data.productSupplies) ? data.productSupplies : [""],
           socialLinks: data.socialLinks || {},
           country: data.country || "",
           state: data.state || "",
           city: data.city || "",
           address: data.address || "",
           industryId: data.industryId || "",
-
           coverImages: coverImages,
-
-          productGallery: data.productGallery || [""],
-          companyGallery: data.companyGallery || [""],
-          factoryGallery: data.factoryGallery || [""],
-
-          productCatalogues: data.productCatalogues || [""],
-
-          companyBrochure: data.companyBrochure || [""],
-          certifications: data.certifications || [""],
-
-          brandsRepresented: data.brandsRepresented || [""],
-          industriesServed: data.industriesServed || [""],
-          exportMarkets: data.exportMarkets || [""],
-
+          productGallery: Array.isArray(data.productGallery) ? data.productGallery : [""],
+          companyGallery: Array.isArray(data.companyGallery) ? data.companyGallery : [""],
+          factoryGallery: Array.isArray(data.factoryGallery) ? data.factoryGallery : [""],
+          productCatalogues: Array.isArray(data.productCatalogues) ? data.productCatalogues : [""],
+          companyBrochure: Array.isArray(data.companyBrochure) ? data.companyBrochure : [""],
+          certifications: Array.isArray(data.certifications) ? data.certifications : [""],
+          brandsRepresented: Array.isArray(data.brandsRepresented) ? data.brandsRepresented : [""],
+          industriesServed: Array.isArray(data.industriesServed) ? data.industriesServed : [""],
+          exportMarkets: Array.isArray(data.exportMarkets) ? data.exportMarkets : [""],
           manufacturingCapabilities: data.manufacturingCapabilities || "",
           machineryList: data.machineryList || "",
           qualityStandards: data.qualityStandards || "",
-
           enableInquiryForm: data.enableInquiryForm ?? true,
-        })
-      } catch {
-        alert("Unable to load directory")
+          isLiveEditable: data.isLiveEditable ?? false,
+        });
+      } catch (error) {
+        console.error("Load directory error:", error);
+        alert("Unable to load directory");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    loadDirectory()
-  }, [id])
+    loadDirectory();
+  }, [id]);
 
   const handleIndustrySelect = async (levelIndex: number, id: number) => {
-    const newSelected = [...industrySelected.slice(0, levelIndex), id]
-    const newLevels = industryLevels.slice(0, levelIndex + 1)
-    setIndustrySelected(newSelected)
-    setIndustryLevels(newLevels)
-    setDirectory((prev: any) => ({ ...prev, industryId: "" }))
+    const newSelected = [...industrySelected.slice(0, levelIndex), id];
+    const newLevels = industryLevels.slice(0, levelIndex + 1);
+    setIndustrySelected(newSelected);
+    setIndustryLevels(newLevels);
+    setDirectory((prev: any) => ({ ...prev, industryId: "" }));
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/industries/${id}/children`)
-    const children = await res.json()
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/industries/${id}/children`);
+    const children = await res.json();
 
     if (children.length > 0) {
-      setIndustryLevels([...newLevels, children])
+      setIndustryLevels([...newLevels, children]);
     } else {
-      setDirectory((prev: any) => ({ ...prev, industryId: id }))
+      setDirectory((prev: any) => ({ ...prev, industryId: id }));
     }
-  }
+  };
 
   const updateArrayItem = (field: string, index: number, value: string) => {
     setDirectory((prev: any) => {
-      const arr = [...(prev[field] || [])]
-      arr[index] = value
-      return { ...prev, [field]: arr }
-    })
-  }
+      const arr = [...(prev[field] || [])];
+      arr[index] = value;
+      return { ...prev, [field]: arr };
+    });
+  };
 
   const addArrayItem = (field: string) => {
     setDirectory((prev: any) => ({
       ...prev,
       [field]: [...(prev[field] || []), ""],
-    }))
-  }
+    }));
+  };
 
   const removeArrayItem = (field: string, index: number) => {
     setDirectory((prev: any) => ({
       ...prev,
       [field]: (prev[field] || []).filter((_: any, idx: number) => idx !== index),
-    }))
-  }
+    }));
+  };
 
   const handleGalleryUpload = async (field: string, index: number, file: File) => {
     const url = await uploadFile(file)
     updateArrayItem(field, index, url)
   }
 
-  /* ================= PRODUCT CATALOGUE UPLOAD ================= */
+ /* ================= PRODUCT CATALOGUE UPLOAD ================= */
   // ✅ Handle catalogue upload specifically
   const handleCatalogueUpload = async (field: string, index: number, file: File) => {
-    setUploadingCatalogue(true)
+    setUploadingCatalogue(true);
     try {
-      const formData = new FormData()
-      formData.append("document", file) // ✅ Use "document" field name
+      const formData = new FormData();
+      formData.append("document", file);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload/document`, {
         method: "POST",
         body: formData,
-      })
+      });
 
       if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || "File upload failed")
+        const error = await res.json();
+        throw new Error(error.error || "File upload failed");
       }
 
-      const data = await res.json()
-      const url = data.documentUrl // ✅ Use documentUrl
-      updateArrayItem(field, index, url)
+      const data = await res.json();
+      const url = data.documentUrl;
+      updateArrayItem(field, index, url);
     } catch (error: any) {
-      setSaveError(error.message || "Failed to upload document")
+      setSaveError(error.message || "Failed to upload document");
     } finally {
-      setUploadingCatalogue(false)
+      setUploadingCatalogue(false);
     }
-  }
+  };
 
   async function saveChanges() {
     if (!directory?.isLiveEditable) {
-      alert("Directory is not approved yet")
-      return
+      alert("Directory is not approved yet");
+      return;
     }
-
-    const validationChecks = [
-      { key: "companyGallery", name: "company gallery images", limit: limits.companyGallery },
-      { key: "factoryGallery", name: "factory gallery images", limit: limits.factoryGallery },
-      { key: "productSupplies", name: "product supplies", limit: limits.productSupplies },
-      { key: "productGallery", name: "product gallery images", limit: limits.productGallery },
-      { key: "videoGallery", name: "video gallery links", limit: limits.videoGallery },
-      { key: "productCatalogues", name: "product catalogues", limit: limits.productCatalogues },
-      { key: "companyBrochure", name: "company brochures", limit: limits.companyBrochure },
-      { key: "certifications", name: "certifications", limit: limits.certifications },
-      { key: "brandsRepresented", name: "brands represented", limit: limits.brandsRepresented },
-      { key: "industriesServed", name: "industries served", limit: limits.industriesServed },
-      { key: "exportMarkets", name: "export markets", limit: limits.exportMarkets },
-    ]
-
-    for (const check of validationChecks) {
-      const count = (directory[check.key] || []).filter(Boolean).length
-      if (count > check.limit) {
-        alert(`Your plan allows a maximum of ${check.limit === Infinity ? "unlimited" : check.limit} ${check.name}. Please remove some.`)
-        return
-      }
-    }
-
     try {
-      setSaving(true)
-      setSaveError("")
-      const token = localStorage.getItem("token")
-      const geoLib = geo ?? (await loadGeo())
-
-      const selectedCountry = geoLib.Country.getAllCountries().find(c => c.isoCode === directory.country)
-      const selectedState = geoLib.State.getStatesOfCountry(directory.country).find(s => s.isoCode === directory.state)
-      const location = [directory.city, selectedState?.name, selectedCountry?.name].filter(Boolean).join(", ")
-
-      const payload = {
-        ...directory,
-        location,
-        coverImageUrl: directory.coverImages
+      setSaving(true);
+      setSaveError("");
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setSaveError("Not authenticated");
+        return;
       }
+
+      const geoLib = geo ?? (await loadGeo());
+
+      const selectedCountry = geoLib.Country.getAllCountries().find(
+        (c) => c.isoCode === directory.country
+      );
+      const selectedState = geoLib.State.getStatesOfCountry(directory.country).find(
+        (s) => s.isoCode === directory.state
+      );
+      const location = [directory.city, selectedState?.name, selectedCountry?.name]
+        .filter(Boolean)
+        .join(", ");
+
+      // Filter out empty strings from arrays
+      const cleanArray = (arr: any[]) => arr.filter((item) => item && item.trim().length > 0);
+
+      // Prepare clean payload
+      const payload = {
+        name: directory.name,
+        slug: directory.slug,
+        description: directory.description,
+        website: directory.website || null,
+        logoUrl: directory.logoUrl || null,
+        coverImageUrl: cleanArray(directory.coverImages),
+        phoneNumber: directory.phoneNumber || null,
+        email: directory.email || null,
+        googleMapUrl: directory.googleMapUrl || null,
+        tradeNames: cleanArray(directory.tradeNames),
+        socialLinks: directory.socialLinks || {},
+        videoGallery: cleanArray(directory.videoGallery),
+        productSupplies: cleanArray(directory.productSupplies),
+        productGallery: cleanArray(directory.productGallery),
+        companyGallery: cleanArray(directory.companyGallery),
+        factoryGallery: cleanArray(directory.factoryGallery),
+        productCatalogues: cleanArray(directory.productCatalogues),
+        companyBrochure: cleanArray(directory.companyBrochure),
+        certifications: cleanArray(directory.certifications),
+        brandsRepresented: cleanArray(directory.brandsRepresented),
+        industriesServed: cleanArray(directory.industriesServed),
+        exportMarkets: cleanArray(directory.exportMarkets),
+        manufacturingCapabilities: directory.manufacturingCapabilities || null,
+        machineryList: directory.machineryList || null,
+        qualityStandards: directory.qualityStandards || null,
+        enableInquiryForm: directory.enableInquiryForm ?? true,
+        location,
+        address: directory.address,
+        industryId: Number(directory.industryId),
+      };
+
+      console.log("Saving payload:", payload);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/suppliers/${directory.id}`, {
         method: "PUT",
@@ -281,30 +296,59 @@ export default function EditDirectoryPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
-      })
+      });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setSaveError(data.error || "Failed to save changes")
-        return
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Save error response:", errorData);
+        setSaveError(errorData.error || "Failed to save changes");
+        return;
       }
 
-      router.push("/recruiter/dashboard")
+      const data = await res.json();
+      console.log("Save successful:", data);
+      router.push("/recruiter/dashboard");
+    } catch (error: any) {
+      console.error("Save error:", error);
+      setSaveError(error.message || "An unexpected error occurred");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
-  if (loading || !geo) return <div className="p-10">Loading directory...</div>
-  if (!directory) return <div className="p-10">Directory not found</div>
+  if (loading || !geo) return <div className="p-10">Loading directory...</div>;
+  if (!directory) return <div className="p-10">Directory not found</div>;
 
-  const states = directory.country ? geo.State.getStatesOfCountry(directory.country) : []
-  const cities = directory.state ? geo.City.getCitiesOfState(directory.country, directory.state) : []
-  const countries = geo.Country.getAllCountries()
+  const states = directory.country ? geo.State.getStatesOfCountry(directory.country) : [];
+  const cities = directory.state ? geo.City.getCitiesOfState(directory.country, directory.state) : [];
+  const countries = geo.Country.getAllCountries();
+
+  // Safe helper functions for profile limits
+  const getLimitNumber = (key: keyof CompanyProfileEligibility): number | null => {
+    const val = profileLimits?.[key];
+    if (typeof val === "number") return val;
+    if (val === null) return null;
+    return null;
+  };
+
+  const getLimitBoolean = (key: keyof CompanyProfileEligibility): boolean => {
+    return !!profileLimits?.[key];
+  };
+
+  const hasLimit = (key: keyof CompanyProfileEligibility): boolean => {
+    const val = profileLimits?.[key];
+    return val !== null && val !== undefined && val !== false && val !== 0;
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-10 space-y-6">
       <h1 className="text-2xl font-bold">Edit Supplier Directory</h1>
+
+      {saveError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {saveError}
+        </div>
+      )}
 
       {/* NAME + SLUG */}
       <div className="grid grid-cols-2 gap-4">
@@ -349,11 +393,15 @@ export default function EditDirectoryPage() {
           <select
             className="input"
             value={directory.country}
-            onChange={(e) => setDirectory({ ...directory, country: e.target.value, state: "", city: "" })}
+            onChange={(e) =>
+              setDirectory({ ...directory, country: e.target.value, state: "", city: "" })
+            }
           >
             <option value="">Select Country</option>
-            {countries.map(c => (
-              <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
+            {countries.map((c) => (
+              <option key={c.isoCode} value={c.isoCode}>
+                {c.name}
+              </option>
             ))}
           </select>
         </div>
@@ -365,8 +413,10 @@ export default function EditDirectoryPage() {
             onChange={(e) => setDirectory({ ...directory, state: e.target.value, city: "" })}
           >
             <option value="">Select State</option>
-            {states.map(s => (
-              <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
+            {states.map((s) => (
+              <option key={s.isoCode} value={s.isoCode}>
+                {s.name}
+              </option>
             ))}
           </select>
         </div>
@@ -382,8 +432,10 @@ export default function EditDirectoryPage() {
             onChange={(e) => setDirectory({ ...directory, city: e.target.value })}
           >
             <option value="">Select City</option>
-            {cities.map(c => (
-              <option key={c.name} value={c.name}>{c.name}</option>
+            {cities.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}
+              </option>
             ))}
           </select>
         </div>
@@ -396,6 +448,27 @@ export default function EditDirectoryPage() {
           />
         </div>
       </div>
+
+      {/* GOOGLE MAP - GATED BY PACKAGE */}
+      <Section title="Google Map">
+        <PlanGatedSection
+          allowed={getLimitBoolean("googleMap")}
+          upgradeMessage="Google Map is available on Basic plan and above."
+        >
+          <div>
+            <label className="label">Google Maps Embed/Share URL</label>
+            <input
+              className="input"
+              value={directory.googleMapUrl || ""}
+              onChange={(e) => setDirectory({ ...directory, googleMapUrl: e.target.value })}
+              placeholder="https://www.google.com/maps/embed?..."
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Paste the "Share" link from Google Maps for your business location.
+            </p>
+          </div>
+        </PlanGatedSection>
+      </Section>
 
       {/* INDUSTRY + WEBSITE */}
       <div className="grid grid-cols-2 gap-4">
@@ -410,7 +483,9 @@ export default function EditDirectoryPage() {
             >
               <option value="">Select Industry</option>
               {levelOptions.map((industry: any) => (
-                <option key={industry.id} value={industry.id}>{industry.name}</option>
+                <option key={industry.id} value={industry.id}>
+                  {industry.name}
+                </option>
               ))}
             </select>
           ))}
@@ -432,6 +507,13 @@ export default function EditDirectoryPage() {
           value={directory.description}
           onChange={(val: string) => setDirectory({ ...directory, description: val })}
         />
+        {profileLimits?.descriptionLimit !== null && profileLimits?.descriptionLimit !== undefined && (
+          <p className="text-xs text-gray-400 mt-1">
+            {profileLimits.descriptionLimit === null
+              ? "Unlimited words on your plan."
+              : `Maximum ${profileLimits.descriptionLimit} words on your plan.`}
+          </p>
+        )}
       </div>
 
       {/* LOGO */}
@@ -453,7 +535,8 @@ export default function EditDirectoryPage() {
         ) : (
           <>
             <p className="text-xs text-gray-400 mb-2">
-              Your plan allows up to {maxCoverImages} cover image{maxCoverImages > 1 ? "s" : ""}.
+              Your plan allows up to {maxCoverImages} cover image
+              {maxCoverImages > 1 ? "s" : ""}.
               {maxCoverImages > 1 ? " Multiple images will display as a carousel." : ""}
             </p>
             <GallerySection
@@ -473,104 +556,77 @@ export default function EditDirectoryPage() {
 
       {/* PRODUCT SUPPLIES */}
       <Section title="Product Supplies">
-        {limits.productSupplies === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Product supplies are available on the Basic plan and above. Upgrade your plan to add products.
-          </div>
-        ) : (
-          <>
-            {limits.productSupplies !== Infinity && (
-              <p className="text-xs text-gray-400 mb-2">
-                Your plan allows up to {limits.productSupplies} product supplies.
-              </p>
+        {listingEligibility && (
+          <p className="text-sm text-gray-500 mb-3">
+            Products inside your directory do not count toward your directory slot limit.
+          </p>
+        )}
+        {directory.productSupplies.map((item: string, i: number) => (
+          <div key={i} className="flex gap-2">
+            <input
+              className="input flex-1"
+              value={item}
+              onChange={(e) => {
+                const arr = [...directory.productSupplies]
+                arr[i] = e.target.value
+                setDirectory({ ...directory, productSupplies: arr })
+              }}
+            />
+            {i > 0 && (
+              <button type="button" onClick={() => {
+                const arr = directory.productSupplies.filter((_: any, idx: number) => idx !== i)
+                setDirectory({ ...directory, productSupplies: arr })
+              }}>✕</button>
             )}
-            {directory.productSupplies.map((item: string, i: number) => (
-              <div key={i} className="flex gap-2">
-                <input
-                  className="input flex-1"
-                  value={item}
-                  onChange={(e) => {
-                    const arr = [...directory.productSupplies]
-                    arr[i] = e.target.value
-                    setDirectory({ ...directory, productSupplies: arr })
-                  }}
-                />
-                {i > 0 && (
-                  <button type="button" onClick={() => {
-                    const arr = directory.productSupplies.filter((_: any, idx: number) => idx !== i)
-                    setDirectory({ ...directory, productSupplies: arr })
-                  }}>✕</button>
-                )}
-              </div>
-            ))}
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() =>
+            setDirectory({
+              ...directory,
+              productSupplies: [...directory.productSupplies, ""],
+            })
+          }
+        >
+          + Add product
+        </button>
+      </Section>
+
+      {/* PRODUCT CATALOGUES - GATED BY PACKAGE */}
+      <Section title="Product Catalogues">
+        <p className="text-sm text-gray-500 mb-3">
+          Upload your product catalogues (PDFs, brochures, etc.).
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          {directory.productCatalogues.map((url: string, i: number) => (
+            <div key={i} className="space-y-1">
+              <UploadBox
+                label={`Product Catalogue ${i + 1}`}
+                value={url}
+                onUpload={(file) => handleCatalogueUpload("productCatalogues", i, file)}
+              />
+              <button type="button" onClick={() => removeArrayItem("productCatalogues", i)}>
+                ✕ Remove
+              </button>
+            </div>
+          ))}
+          <div className="col-span-2">
             <button
               type="button"
-              disabled={directory.productSupplies.length >= limits.productSupplies}
-              onClick={() =>
-                setDirectory({
-                  ...directory,
-                  productSupplies: [...directory.productSupplies, ""],
-                })
-              }
-              className="disabled:opacity-40 disabled:cursor-not-allowed text-sm mt-2 border px-3 py-1 rounded bg-gray-50 hover:bg-gray-100 font-medium"
+              onClick={() => addArrayItem("productCatalogues")}
+              className="disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              + Add product ({directory.productSupplies.length}/{limits.productSupplies === Infinity ? "Unlimited" : limits.productSupplies})
+              + Add product catalogue
             </button>
-          </>
-        )}
-      </Section>
-
-      {/* PRODUCT CATALOGUES - WITH FILE UPLOAD */}
-      <Section title="Product Catalogues">
-        {limits.productCatalogues === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Product catalogues are available on the Basic plan and above. Upgrade your plan to add catalogues.
           </div>
-        ) : (
-          <>
-            {limits.productCatalogues !== Infinity && (
-              <p className="text-xs text-gray-400 mb-2">
-                Your plan allows up to {limits.productCatalogues} product catalogues.
-              </p>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              {directory.productCatalogues.map((url: string, i: number) => (
-                <div key={i} className="space-y-1">
-                  <UploadBox
-                    label={`Product Catalogue ${i + 1}`}
-                    value={url}
-                    onUpload={(file) => handleCatalogueUpload("productCatalogues", i, file)}
-                  />
-                  <button type="button" onClick={() => removeArrayItem("productCatalogues", i)}>
-                    ✕ Remove
-                  </button>
-                </div>
-              ))}
-              <div className="col-span-2">
-                <button
-                  type="button"
-                  onClick={() => addArrayItem("productCatalogues")}
-                  disabled={directory.productCatalogues.length >= limits.productCatalogues}
-                  className="disabled:opacity-40 disabled:cursor-not-allowed text-sm border px-3 py-1 rounded bg-gray-50 hover:bg-gray-100 font-medium"
-                >
-                  + Add product catalogue ({directory.productCatalogues.length}/{limits.productCatalogues === Infinity ? "Unlimited" : limits.productCatalogues})
-                </button>
-              </div>
-            </div>
-          </>
-        )}
+        </div>
       </Section>
 
-      {/* SOCIAL LINKS */}
+      {/* SOCIAL LINKS - WhatsApp gated */}
       <Section title="Social Media">
         <div className="grid grid-cols-2 gap-4">
-          {[
-            "facebook",
-            "linkedin",
-            "twitter",
-            "youtube",
-            ...(allowWhatsapp ? ["whatsapp"] : []),
-          ].map((key) => (
+          {["facebook", "linkedin", "twitter", "youtube"].map((key) => (
             <div key={key}>
               <label className="label capitalize">{key}</label>
               <input
@@ -578,17 +634,38 @@ export default function EditDirectoryPage() {
                 placeholder={key}
                 value={directory.socialLinks?.[key] || ""}
                 onChange={(e) =>
-                  setDirectory({ ...directory, socialLinks: { ...directory.socialLinks, [key]: e.target.value } })
+                  setDirectory({
+                    ...directory,
+                    socialLinks: { ...directory.socialLinks, [key]: e.target.value },
+                  })
                 }
               />
             </div>
           ))}
+          {allowWhatsapp ? (
+            <div>
+              <label className="label">WhatsApp</label>
+              <input
+                className="input"
+                placeholder="WhatsApp number"
+                value={directory.socialLinks?.whatsapp || ""}
+                onChange={(e) =>
+                  setDirectory({
+                    ...directory,
+                    socialLinks: { ...directory.socialLinks, whatsapp: e.target.value },
+                  })
+                }
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="label">WhatsApp</label>
+              <div className="rounded-lg border border-dashed border-gray-300 p-3 text-xs text-gray-500">
+                Available on Basic plan and above.
+              </div>
+            </div>
+          )}
         </div>
-        {!allowWhatsapp && (
-          <p className="text-xs text-gray-400">
-            WhatsApp is available on the Basic plan and above.
-          </p>
-        )}
       </Section>
 
       {/* TRADE NAMES */}
@@ -599,287 +676,256 @@ export default function EditDirectoryPage() {
               className="input flex-1"
               value={item}
               onChange={(e) => {
-                const arr = [...directory.tradeNames]
-                arr[i] = e.target.value
-                setDirectory({ ...directory, tradeNames: arr })
+                const arr = [...directory.tradeNames];
+                arr[i] = e.target.value;
+                setDirectory({ ...directory, tradeNames: arr });
               }}
             />
             {i > 0 && (
-              <button type="button" onClick={() => {
-                const arr = directory.tradeNames.filter((_: any, idx: number) => idx !== i)
-                setDirectory({ ...directory, tradeNames: arr })
-              }}>✕</button>
+              <button
+                type="button"
+                onClick={() => {
+                  const arr = directory.tradeNames.filter(
+                    (_: any, idx: number) => idx !== i
+                  );
+                  setDirectory({ ...directory, tradeNames: arr });
+                }}
+              >
+                ✕
+              </button>
             )}
           </div>
         ))}
-        <button type="button" onClick={() => setDirectory({ ...directory, tradeNames: [...directory.tradeNames, ""] })}>
+        <button
+          type="button"
+          onClick={() =>
+            setDirectory({ ...directory, tradeNames: [...directory.tradeNames, ""] })
+          }
+        >
           + Add trade name
         </button>
       </Section>
 
-      {/* VIDEO GALLERY */}
+      {/* VIDEO GALLERY - GATED BY PACKAGE */}
       <Section title="YouTube Video Links">
-        {limits.videoGallery === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            YouTube videos are available on the Basic plan and above. Upgrade your plan to add videos.
-          </div>
-        ) : (
-          <>
-            {limits.videoGallery !== Infinity && (
-              <p className="text-xs text-gray-400 mb-2">
-                Your plan allows up to {limits.videoGallery} videos.
-              </p>
-            )}
-            {directory.videoGallery.map((item: string, i: number) => (
-              <div key={i} className="flex gap-2">
-                <input
-                  className="input flex-1"
-                  value={item}
-                  onChange={(e) => {
-                    const arr = [...directory.videoGallery]
-                    arr[i] = e.target.value
-                    setDirectory({ ...directory, videoGallery: arr })
-                  }}
-                />
-                {i > 0 && (
-                  <button type="button" onClick={() => {
-                    const arr = directory.videoGallery.filter((_: any, idx: number) => idx !== i)
-                    setDirectory({ ...directory, videoGallery: arr })
-                  }}>✕</button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              disabled={directory.videoGallery.length >= limits.videoGallery}
-              onClick={() => setDirectory({ ...directory, videoGallery: [...directory.videoGallery, ""] })}
-              className="disabled:opacity-40 disabled:cursor-not-allowed text-sm mt-2 border px-3 py-1 rounded bg-gray-50 hover:bg-gray-100 font-medium"
-            >
-              + Add video ({directory.videoGallery.length}/{limits.videoGallery === Infinity ? "Unlimited" : limits.videoGallery})
-            </button>
-          </>
-        )}
-      </Section>
-
-      {/* IMAGE GALLERIES */}
-      <Section title="Product Gallery">
-        {limits.productGallery === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Product gallery images are available on the Basic plan and above. Upgrade your plan to add images.
-          </div>
-        ) : (
-          <GallerySection
-            field="productGallery"
-            items={directory.productGallery}
-            onUpload={handleGalleryUpload}
-            onAdd={addArrayItem}
-            onRemove={removeArrayItem}
-            addLabel="+ Add product image"
-            max={limits.productGallery === Infinity ? undefined : limits.productGallery}
-          />
-        )}
-      </Section>
-
-      <Section title="Company Gallery">
-        {limits.companyGallery === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Company gallery images are available on the Basic plan and above. Upgrade your
-            plan to add company gallery images.
-          </div>
-        ) : (
-          <>
-            <p className="text-xs text-gray-400 mb-2">
-              Your plan allows up to {limits.companyGallery === Infinity ? "unlimited" : limits.companyGallery} company gallery image{limits.companyGallery > 1 ? "s" : ""}.
-            </p>
-            <GallerySection
-              field="companyGallery"
-              items={directory.companyGallery}
-              onUpload={handleGalleryUpload}
-              onAdd={addArrayItem}
-              onRemove={removeArrayItem}
-              addLabel="+ Add company image"
-              max={limits.companyGallery === Infinity ? undefined : limits.companyGallery}
+        {directory.videoGallery.map((item: string, i: number) => (
+          <div key={i} className="flex gap-2">
+            <input
+              className="input flex-1"
+              value={item}
+              onChange={(e) => {
+                const arr = [...directory.videoGallery]
+                arr[i] = e.target.value
+                setDirectory({ ...directory, videoGallery: arr })
+              }}
             />
-          </>
-        )}
+            {i > 0 && (
+              <button type="button" onClick={() => {
+                const arr = directory.videoGallery.filter((_: any, idx: number) => idx !== i)
+                setDirectory({ ...directory, videoGallery: arr })
+              }}>✕</button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={() => setDirectory({ ...directory, videoGallery: [...directory.videoGallery, ""] })}>
+          + Add video
+        </button>
       </Section>
 
+      {/* PRODUCT GALLERY - GATED BY PACKAGE */}
+      <Section title="Product Gallery">
+        <GallerySection
+          field="productGallery"
+          items={directory.productGallery}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add product image"
+        />
+      </Section>
+
+      {/* COMPANY GALLERY - GATED BY PACKAGE */}
+      <Section title="Company Gallery">
+        <GallerySection
+          field="companyGallery"
+          items={directory.companyGallery}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add company image"
+        />
+      </Section>
+
+      {/* FACTORY GALLERY - GATED BY PACKAGE */}
       <Section title="Factory Gallery">
-        {limits.factoryGallery === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Factory gallery images are available on the Basic plan and above. Upgrade your plan to add factory images.
-          </div>
-        ) : (
-          <GallerySection
-            field="factoryGallery"
-            items={directory.factoryGallery}
-            onUpload={handleGalleryUpload}
-            onAdd={addArrayItem}
-            onRemove={removeArrayItem}
-            addLabel="+ Add factory image"
-            max={limits.factoryGallery === Infinity ? undefined : limits.factoryGallery}
-          />
-        )}
+        <GallerySection
+          field="factoryGallery"
+          items={directory.factoryGallery}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add factory image"
+        />
       </Section>
 
-      {/* DOCUMENTS */}
+      {/* COMPANY BROCHURE - GATED BY PACKAGE */}
       <Section title="Company Brochure">
-        {limits.companyBrochure === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Company brochures are available on the Basic plan and above. Upgrade your plan to add brochures.
-          </div>
-        ) : (
-          <GallerySection
-            field="companyBrochure"
-            items={directory.companyBrochure}
-            onUpload={handleGalleryUpload}
-            onAdd={addArrayItem}
-            onRemove={removeArrayItem}
-            addLabel="+ Add brochure file"
-            uploadLabel="Brochure File"
-            max={limits.companyBrochure === Infinity ? undefined : limits.companyBrochure}
-          />
-        )}
+        <GallerySection
+          field="companyBrochure"
+          items={directory.companyBrochure}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add brochure file"
+          uploadLabel="Brochure File"
+        />
       </Section>
 
+      {/* CERTIFICATIONS - GATED BY PACKAGE */}
       <Section title="Certifications">
-        {limits.certifications === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Certifications are available on the Basic plan and above. Upgrade your plan to add certifications.
-          </div>
-        ) : (
-          <GallerySection
-            field="certifications"
-            items={directory.certifications}
-            onUpload={handleGalleryUpload}
-            onAdd={addArrayItem}
-            onRemove={removeArrayItem}
-            addLabel="+ Add certification file"
-            uploadLabel="Certification File"
-            max={limits.certifications === Infinity ? undefined : limits.certifications}
-          />
-        )}
+        <GallerySection
+          field="certifications"
+          items={directory.certifications}
+          onUpload={handleGalleryUpload}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add certification file"
+          uploadLabel="Certification File"
+        />
       </Section>
 
-      {/* LIST FIELDS */}
+      {/* BRANDS REPRESENTED - GATED BY PACKAGE */}
       <Section title="Brands Represented">
-        {limits.brandsRepresented === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Brands represented are available on the Basic plan and above. Upgrade your plan to add brands.
-          </div>
-        ) : (
-          <DynamicListField
-            field="brandsRepresented"
-            items={directory.brandsRepresented}
-            onChange={updateArrayItem}
-            onAdd={addArrayItem}
-            onRemove={removeArrayItem}
-            addLabel="+ Add brand"
-            max={limits.brandsRepresented === Infinity ? undefined : limits.brandsRepresented}
-          />
-        )}
+        <DynamicListField
+          field="brandsRepresented"
+          items={directory.brandsRepresented}
+          onChange={updateArrayItem}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add brand"
+        />
       </Section>
 
+      {/* INDUSTRIES SERVED - GATED BY PACKAGE */}
       <Section title="Industries Served">
-        {limits.industriesServed === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Industries served are available on the Basic plan and above. Upgrade your plan to add industries.
-          </div>
-        ) : (
-          <DynamicListField
-            field="industriesServed"
-            items={directory.industriesServed}
-            onChange={updateArrayItem}
-            onAdd={addArrayItem}
-            onRemove={removeArrayItem}
-            addLabel="+ Add industry served"
-            max={limits.industriesServed === Infinity ? undefined : limits.industriesServed}
-          />
-        )}
+        <DynamicListField
+          field="industriesServed"
+          items={directory.industriesServed}
+          onChange={updateArrayItem}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add industry served"
+        />
       </Section>
 
+      {/* EXPORT MARKETS - GATED BY PACKAGE */}
       <Section title="Export Markets">
-        {limits.exportMarkets === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
-            Export markets are available on the Basic plan and above. Upgrade your plan to add markets.
-          </div>
-        ) : (
-          <DynamicListField
-            field="exportMarkets"
-            items={directory.exportMarkets}
-            onChange={updateArrayItem}
-            onAdd={addArrayItem}
-            onRemove={removeArrayItem}
-            addLabel="+ Add export market"
-            max={limits.exportMarkets === Infinity ? undefined : limits.exportMarkets}
-          />
-        )}
+        <DynamicListField
+          field="exportMarkets"
+          items={directory.exportMarkets}
+          onChange={updateArrayItem}
+          onAdd={addArrayItem}
+          onRemove={removeArrayItem}
+          addLabel="+ Add export market"
+        />
       </Section>
 
-      {/* LONG TEXT SECTIONS */}
+      {/* MANUFACTURING CAPABILITIES - GATED BY PACKAGE */}
       <Section title="Manufacturing Capabilities">
-        <RichTextEditor
-          value={directory.manufacturingCapabilities}
-          onChange={(val: string) => setDirectory({ ...directory, manufacturingCapabilities: val })}
-        />
+        <PlanGatedSection
+          allowed={!!profileLimits?.manufacturingCapabilities}
+          upgradeMessage="Manufacturing Capabilities are available on Basic plan and above."
+        >
+          <p className="text-xs text-gray-400 mb-2">
+            {profileLimits?.manufacturingCapabilities === "Basic" &&
+              "Basic plan: Standard text description."}
+            {profileLimits?.manufacturingCapabilities === "Complete" &&
+              "Professional plan: Complete text description."}
+            {profileLimits?.manufacturingCapabilities === "Complete + Photos + Video" &&
+              "Enterprise plan: Complete text + Photos + Videos."}
+          </p>
+          <RichTextEditor
+            value={directory.manufacturingCapabilities}
+            onChange={(val: string) =>
+              setDirectory({ ...directory, manufacturingCapabilities: val })
+            }
+          />
+        </PlanGatedSection>
       </Section>
 
+      {/* MACHINERY LIST - GATED BY PACKAGE */}
       <Section title="Machinery List">
-        <RichTextEditor
-          value={directory.machineryList}
-          onChange={(val: string) => setDirectory({ ...directory, machineryList: val })}
-        />
+        <PlanGatedSection
+          allowed={!!profileLimits?.machineryList}
+          upgradeMessage="Machinery List is available on Basic plan and above."
+        >
+          <p className="text-xs text-gray-400 mb-2">
+            {profileLimits?.machineryList === "Basic" &&
+              "Basic plan: Basic text list."}
+            {profileLimits?.machineryList === "Detailed" &&
+              "Professional plan: Detailed text list."}
+            {profileLimits?.machineryList === "Detailed with Images" &&
+              "Enterprise plan: Detailed text + Machinery Images."}
+          </p>
+          <RichTextEditor
+            value={directory.machineryList}
+            onChange={(val: string) => setDirectory({ ...directory, machineryList: val })}
+          />
+        </PlanGatedSection>
       </Section>
 
+      {/* QUALITY STANDARDS - GATED BY PACKAGE */}
       <Section title="Quality Standards">
-        <RichTextEditor
-          value={directory.qualityStandards}
-          onChange={(val: string) => setDirectory({ ...directory, qualityStandards: val })}
-        />
+        <PlanGatedSection
+          allowed={getLimitBoolean("qualityStandards")}
+          upgradeMessage="Quality Standards are available on Basic plan and above."
+        >
+          <RichTextEditor
+            value={directory.qualityStandards}
+            onChange={(val: string) => setDirectory({ ...directory, qualityStandards: val })}
+          />
+        </PlanGatedSection>
       </Section>
 
-      {/* BOOLEAN TOGGLE */}
+      {/* INQUIRY FORM */}
       <Section title="Inquiry Form">
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={directory.enableInquiryForm ?? true}
-            onChange={(e) => setDirectory({ ...directory, enableInquiryForm: e.target.checked })}
+            onChange={(e) =>
+              setDirectory({ ...directory, enableInquiryForm: e.target.checked })
+            }
           />
           <span>Enable inquiry form on public showroom page</span>
         </label>
       </Section>
 
-      {saveError && <p className="text-red-600 text-sm">{saveError}</p>}
-
       <button
         onClick={saveChanges}
         disabled={saving || uploadingCatalogue}
-        className="bg-black text-white px-6 py-2 rounded"
+        className="bg-black text-white px-6 py-2 rounded disabled:opacity-50"
       >
         {saving ? "Saving..." : "Save Changes"}
       </button>
     </div>
-  )
+  );
 }
 
-/* ---------------- LOGO UPLOAD ---------------- */
 async function handleImageUpload(file: File, directory: any, setDirectory: any, field: "logoUrl") {
-  const url = await uploadFile(file)
-  setDirectory({ ...directory, [field]: url })
+  const url = await uploadFile(file);
+  setDirectory({ ...directory, [field]: url });
 }
 
-/* ---------------- SECTION ---------------- */
 function Section({ title, children }: any) {
   return (
     <div className="space-y-2">
       <h3 className="font-semibold">{title}</h3>
       {children}
     </div>
-  )
+  );
 }
 
-/* ---------------- REUSABLE: DYNAMIC STRING LIST ---------------- */
 function DynamicListField({
   field,
   items,
@@ -888,7 +934,7 @@ function DynamicListField({
   onRemove,
   addLabel,
   placeholder,
-  max,
+  
 }: {
   field: string
   items: string[]
@@ -897,10 +943,7 @@ function DynamicListField({
   onRemove: (field: string, index: number) => void
   addLabel: string
   placeholder?: string
-  max?: number
 }) {
-  const atLimit = typeof max === "number" && items.length >= max
-
   return (
     <>
       {items.map((item, i) => (
@@ -912,26 +955,17 @@ function DynamicListField({
             onChange={(e) => onChange(field, i, e.target.value)}
           />
           {i > 0 && (
-            <button type="button" onClick={() => onRemove(field, i)}>✕</button>
+            <button type="button" onClick={() => onRemove(field, i)}>
+              ✕
+            </button>
           )}
         </div>
       ))}
-      {typeof max === "number" && (
-        <p className="text-xs text-gray-400 mt-1 mb-2">{items.length} of {max} used</p>
-      )}
-      <button
-        type="button"
-        onClick={() => onAdd(field)}
-        disabled={atLimit}
-        className="disabled:opacity-40 disabled:cursor-not-allowed mt-1"
-      >
-        {addLabel}
-      </button>
+      <button type="button" onClick={() => onAdd(field)}>{addLabel}</button>
     </>
-  )
+  );
 }
 
-/* ---------------- REUSABLE: GALLERY / DOCUMENT UPLOAD ---------------- */
 function GallerySection({
   field,
   items,
@@ -943,17 +977,17 @@ function GallerySection({
   max,
   allowRemoveFirst = false,
 }: {
-  field: string
-  items: string[]
-  onUpload: (field: string, index: number, file: File) => void | Promise<void>
-  onAdd: (field: string) => void
-  onRemove: (field: string, index: number) => void
-  addLabel: string
-  uploadLabel?: string
-  max?: number
-  allowRemoveFirst?: boolean
+  field: string;
+  items: string[];
+  onUpload: (field: string, index: number, file: File) => void | Promise<void>;
+  onAdd: (field: string) => void;
+  onRemove: (field: string, index: number) => void;
+  addLabel: string;
+  uploadLabel?: string;
+  max?: number | null;
+  allowRemoveFirst?: boolean;
 }) {
-  const atLimit = typeof max === "number" && items.length >= max
+  const atLimit = typeof max === "number" && items.length >= max;
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -972,9 +1006,6 @@ function GallerySection({
         </div>
       ))}
       <div className="col-span-2">
-        {typeof max === "number" && (
-          <p className="text-xs text-gray-400 mb-2">{items.length} of {max} used</p>
-        )}
         <button
           type="button"
           onClick={() => onAdd(field)}
@@ -982,12 +1013,9 @@ function GallerySection({
           className="disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {addLabel}
+          {typeof max === "number" && ` (${items.length}/${max})`}
         </button>
       </div>
     </div>
-  )
-}
-
-function setUploadError(message: any) {
-  throw new Error("Function not implemented.")
+  );
 }

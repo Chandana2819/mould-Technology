@@ -56,7 +56,7 @@ type Supplier = {
   productCatalogues?: string[]
   planTier?: "free" | "basic" | "professional" | "enterprise" | string | null
   promotionBanners?: string[]
-
+  googleMapUrl?: string | null
   id: number
   companyId: number
   name: string
@@ -139,7 +139,8 @@ export default async function SupplierShowroomPage({
   const isPaid =
     KNOWN_TIERS.includes(normalizedPlanTier) && normalizedPlanTier !== "free"
 
-  const inquiriesEnabled = supplier.enableInquiryForm !== false
+  // ✅ Only show quote button for paid plans (Basic, Professional, Enterprise)
+  const showQuoteButton = isPaid && supplier.enableInquiryForm !== false
 
   const currentUser = await getCurrentUser()
   const isLoggedIn = Boolean(currentUser)
@@ -148,8 +149,48 @@ export default async function SupplierShowroomPage({
 
   const showUpsellToOwner = !isPaid && isOwner
 
-  // Get company slug - use company slug if available, otherwise use supplier slug
   const companySlug = supplier.Company?.slug || supplier.slug
+
+  const location = supplier.Company?.location || ""
+
+  // ✅ Function to extract coordinates from Google Maps URL
+  function extractCoordinates(url: string | null | undefined): { lat: string; lng: string } | null {
+    if (!url) return null
+
+    // Try to extract coordinates from Google Maps URL
+    const coordMatch = url.match(/@([-0-9.]+),([-0-9.]+)/)
+    if (coordMatch) {
+      return { lat: coordMatch[1], lng: coordMatch[2] }
+    }
+
+    return null
+  }
+
+  // ✅ Function to get map URL using multiple methods
+  function getMapEmbedUrl(location: string, googleMapUrl?: string | null): string | null {
+    if (!location && !googleMapUrl) return null
+
+    // Method 1: Try to extract coordinates from Google Maps URL
+    const coords = extractCoordinates(googleMapUrl)
+    if (coords) {
+      const lat = parseFloat(coords.lat)
+      const lng = parseFloat(coords.lng)
+      // Show map centered on the coordinates with proper zoom
+      return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.02}%2C${lat - 0.02}%2C${lng + 0.02}%2C${lat + 0.02}&layer=mapnik&marker=${lat}%2C${lng}`
+    }
+
+    // Method 2: Use location name with OpenStreetMap
+    if (location) {
+      const encodedLocation = encodeURIComponent(location)
+      // Use OpenStreetMap with location search - this will center on the location
+      return `https://www.openstreetmap.org/export/embed.html?q=${encodedLocation}&layer=mapnik&marker=1`
+    }
+
+    return null
+  }
+
+  const mapEmbedUrl = getMapEmbedUrl(location, supplier.googleMapUrl)
+  const hasValidMap = mapEmbedUrl !== null
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -176,7 +217,7 @@ export default async function SupplierShowroomPage({
             website={websiteLink}
             socialLinks={supplier.socialLinks}
             slug={supplier.slug}
-            showQuoteButton={inquiriesEnabled}
+            showQuoteButton={false} // Disable in banner to avoid duplication
           />
         </div>
       )}
@@ -191,10 +232,10 @@ export default async function SupplierShowroomPage({
               {supplier.name}
             </h1>
 
-            {supplier.Company?.location && (
+            {location && (
               <p className="flex items-center justify-center gap-2 text-gray-500 mt-2">
                 <MapPin size={16} />
-                {supplier.Company.location}
+                {location}
               </p>
             )}
 
@@ -246,7 +287,8 @@ export default async function SupplierShowroomPage({
                     )}
                   </div>
 
-                  {inquiriesEnabled && (
+                  {/* ✅ Quote button - Only show for paid suppliers */}
+                  {showQuoteButton && (
                     <div className="shrink-0">
                       <QuoteRequestButton
                         supplierSlug={supplier.slug}
@@ -304,10 +346,70 @@ export default async function SupplierShowroomPage({
         )}
 
         {isPaid && (
-          <div
-            className="prose prose-sm max-w-none text-gray-700"
-            dangerouslySetInnerHTML={{ __html: supplier.description }}
-          />
+          <>
+            <div
+              className="prose prose-sm max-w-none text-gray-700"
+              dangerouslySetInnerHTML={{ __html: supplier.description }}
+            />
+
+            {/* ✅ Quote button for paid suppliers - shown below description */}
+            {showQuoteButton && (
+              <div className="mt-6 flex justify-start">
+                <QuoteRequestButton
+                  supplierSlug={supplier.slug}
+                  supplierName={supplier.name}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ✅ MAP SECTION - Shows actual map */}
+        {hasValidMap && (
+          <div className="mt-8 bg-white rounded-lg shadow p-6">
+            <h4 className="text-sm font-semibold text-gray-600 uppercase mb-3 flex items-center gap-2">
+              <MapPin size={16} />
+              Location Map
+            </h4>
+            <div className="rounded-lg overflow-hidden border border-gray-200 h-[300px] relative">
+              <iframe
+                src={mapEmbedUrl}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Supplier Location"
+                className="w-full h-full"
+              />
+            </div>
+            {location && (
+              <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                <MapPin size={12} />
+                {location}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Show location text if no map is available */}
+        {!hasValidMap && location && (
+          <div className="mt-8 bg-white rounded-lg shadow p-6">
+            <h4 className="text-sm font-semibold text-gray-600 uppercase mb-3 flex items-center gap-2">
+              <MapPin size={16} />
+              Location
+            </h4>
+            <p className="text-gray-700">{location}</p>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-3 text-blue-600 hover:underline text-sm"
+            >
+              View on Google Maps →
+            </a>
+          </div>
         )}
 
         {showUpsellToOwner && <ClaimCompanyBanner />}
@@ -331,7 +433,6 @@ export default async function SupplierShowroomPage({
           </div>
         )}
 
-        {/* Gallery Tabs - Pass companySlug correctly */}
         <GalleryTabs
           videoGallery={supplier.videoGallery}
           productGallery={supplier.productGallery}

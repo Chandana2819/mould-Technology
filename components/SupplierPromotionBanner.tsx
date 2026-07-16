@@ -19,6 +19,7 @@ import {
 import type { PlanTier } from "@/lib/packages";
 import QuoteRequestButton from "./QuteRequestForm";
 
+
 type SocialLinks = {
     facebook?: string;
     linkedin?: string;
@@ -215,6 +216,7 @@ export default function SupplierPromotionBanner({
                                 alt={`${name} logo`}
                                 className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-lg bg-white object-contain p-1.5 shadow-lg shrink-0"
                             />
+
                         )}
                         <div className="min-w-0">
                             <h2 className="text-lg sm:text-2xl md:text-3xl font-bold leading-tight drop-shadow-lg truncate sm:whitespace-normal">
@@ -242,6 +244,7 @@ export default function SupplierPromotionBanner({
                     <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 md:gap-6 items-start md:items-center">
                         {/* LEFT COLUMN: contact details + social */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-700 min-w-0">
+
                             {phoneNumber && (
                                 <span className="flex items-center gap-2 min-w-0">
                                     <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
@@ -313,6 +316,16 @@ export default function SupplierPromotionBanner({
                                             <LucideYoutube className="w-4.5 h-4.5 text-gray-400 hover:text-red-600" />
                                         </a>
                                     )}
+                                </div>
+                            )}
+
+                            {/* ✅ QUOTE REQUEST BUTTON - IN THE SAME ROW AS CONTACT ITEMS */}
+                            {showQuoteButton && slug && (
+                                <div className="ml-auto shrink-0">
+                                    <QuoteRequestButton
+                                        supplierSlug={slug}
+                                        supplierName={name}
+                                    />
                                 </div>
                             )}
                         </div>

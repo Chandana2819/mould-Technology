@@ -43,7 +43,7 @@ export const SUBSCRIPTION_FEATURES: SubscriptionFeature[] = [
   { name: "Quality Standards", free: false, basic: true, professional: true, enterprise: true },
   { name: "Team Profiles", free: false, basic: "5", professional: "10", enterprise: "Unlimited" },
 
-  { name: "Inquiry Form", free: "Basic", basic: "Standard", professional: "Advanced", enterprise: "Custom" },
+  // { name: "Inquiry Form", free: "Basic", basic: "Standard", professional: "Advanced", enterprise: "Custom" },
 
   { name: "Verified Supplier Badge", free: false, basic: "Silver", professional: "Gold", enterprise: "Platinum" },
 
@@ -54,9 +54,9 @@ export const SUBSCRIPTION_FEATURES: SubscriptionFeature[] = [
   { name: "Featured Job", free: false, basic: false, professional: "10 Days", enterprise: "30 Days" },
   { name: "Company Career Page", free: false, basic: false, professional: false, enterprise: true },
   { name: "Resume Download", free: false, basic: "10", professional: "20", enterprise: "Unlimited" },
-  { name: "RFQ Leads", free: false, basic: "10/month", professional: "20/per month", enterprise: "unlimited" },
+  { name: "RFQ Leads", free: false, basic: "10 Leads / month", professional: "20 leads / per month", enterprise: "unlimited" },
   { name: "Quote Request Form", free: false, basic: "yes", professional: "yes", enterprise: "Yes" },
-  { name: "Lead Notifications", free: "Email", basic: "Email", professional: "Email+SMS", enterprise: "Email+Whatsapp+Realtime" },
+  { name: "Lead Notifications", free: "Email", basic: "Email", professional: "Email+SMS", enterprise: "Email+Whatsapp+SMS Realtime" },
 
   { name: "Search Ranking", free: "Standard", basic: "Priority", professional: "Top Results", enterprise: "#1 Priority" },
   { name: "Featured in Category", free: false, basic: true, professional: true, enterprise: true },
@@ -72,7 +72,7 @@ export const SUBSCRIPTION_FEATURES: SubscriptionFeature[] = [
   { name: "Article Banner", free: false, basic: false, professional: "1 / Rotational", enterprise: "1 / Rotational" },
   { name: "Sticky Banner", free: false, basic: false, professional: false, enterprise: "1 / Rotational" },
 
-  { name: "CEO Video Interview", free: false, basic: false, professional: false, enterprise: "1/Year" },
+  // { name: "CEO Video Interview", free: false, basic: false, professional: false, enterprise: "1/Year" },
   { name: "Factory Visit Feature", free: false, basic: false, professional: false, enterprise: "1/Year" },
   { name: "Product Demo Video on Home Page", free: false, basic: false, professional: "1/Year", enterprise: "4/ Year" },
 

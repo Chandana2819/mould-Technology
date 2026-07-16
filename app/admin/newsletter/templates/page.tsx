@@ -48,8 +48,15 @@ export default function TemplatesPage() {
           router.push("/admin/login");
           return;
         }
-        const data = await res.json();
-        throw new Error(data.error || "Failed to load templates");
+       const data = await res.json();
+
+setTemplates(
+  Array.isArray(data)
+    ? data
+    : Array.isArray(data.data)
+    ? data.data
+    : []
+);
       }
 
       const data = await res.json();

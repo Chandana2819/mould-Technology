@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, Loader2, X } from "lucide-react";
 import PackagesHero from "./PackagesHero";
 import {
@@ -19,6 +20,30 @@ import {
   type FeatureValue,
   type PlanTier,
 } from "@/lib/packages";
+
+// ✅ FIX (root cause #4/#5): pulls fresh user/subscription state and writes
+// it back to localStorage right after any payment or free-plan activation,
+// so packageSelected/subscriptionPlan are never stale on the next screen.
+async function refreshLocalUser() {
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.ok) {
+      const freshUser = await res.json();
+      const existing = JSON.parse(localStorage.getItem("user") || "{}");
+      localStorage.setItem("user", JSON.stringify({ ...existing, ...freshUser }));
+      window.dispatchEvent(new Event("userChanged"));
+    }
+  } catch {
+    // ignore — worst case the next full page load / RecruiterLayout
+    // check will refresh it again
+  }
+}
 
 function FeatureCell({ value }: { value: FeatureValue }) {
   if (value === true) {
@@ -75,6 +100,7 @@ function PayButton({
   currentPlan?: string | null;
   activeUntil?: string | null;
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -99,6 +125,11 @@ function PayButton({
 
     if (packageType === "SUBSCRIPTION" && packageId === "free") {
       await activateFreePlan({
+        onSuccess: async () => {
+          // ✅ FIX: refresh cached user/plan before navigating
+          await refreshLocalUser();
+          router.push("/recruiter/onboarding");
+        },
         onError: (message) => setError(message),
       });
       setLoading(false);
@@ -108,6 +139,17 @@ function PayButton({
     await startPackagePayment({
       packageType,
       packageId,
+      onSuccess: async () => {
+        // ✅ FIX: refresh cached user/plan before navigating.
+        // Note: at this point in the flow the recruiter typically still
+        // has no Company yet (payment happens before onboarding), so
+        // packageSelected will flip to true, but subscriptionPlan may
+        // still read "free" until onboarding creates the Company —
+        // that's expected and handled by the backfill+sync in
+        // companyController.js createCompany().
+        await refreshLocalUser();
+        router.push("/recruiter/onboarding");
+      },
       onError: (message) => {
         setError(message);
         setLoading(false);
@@ -150,11 +192,15 @@ export default function PackagesPageClient() {
   const bannerDurations = ["monthly", "quarterly", "annual"] as const;
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [recruitmentExpiresAt, setRecruitmentExpiresAt] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadCurrentPlan() {
       const token = localStorage.getItem("token");
-      if (!token) return;
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const res = await fetch(
@@ -171,15 +217,28 @@ export default function PackagesPageClient() {
         }
       } catch {
         // ignore — user may not be logged in
+      } finally {
+        setIsLoading(false);
       }
     }
 
     loadCurrentPlan();
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004d73] mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading packages...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="w-full bg-white">
-            <PackagesHero
+      <PackagesHero
         title="Packages & Pricing"
         breadcrumbLabel="Packages"
         description="Grow your visibility on ToolingTrends.com with subscription plans, banner advertising, sponsored content, and recruitment packages. Secure checkout powered by Razorpay."
@@ -244,7 +303,7 @@ export default function PackagesPageClient() {
         </div>
       </section>
 
-      {/* <section className="bg-[#f8f9fb] py-16 sm:py-20">
+      <section className="bg-[#f8f9fb] py-16 sm:py-20">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
           <SectionHeading
             title="Banner Advertising Packages"
@@ -291,9 +350,9 @@ export default function PackagesPageClient() {
             </table>
           </div>
         </div>
-      </section> */}
+      </section>
 
-      {/* <section className="py-16 sm:py-20">
+      <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
           <SectionHeading
             title="Sponsored Content Packages"
@@ -330,9 +389,9 @@ export default function PackagesPageClient() {
             ))}
           </div>
         </div>
-      </section> */}
+      </section>
 
-      {/* <section className="bg-[#f8f9fb] py-16 sm:py-20">
+      <section className="bg-[#f8f9fb] py-16 sm:py-20">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
           <SectionHeading
             title="Recruitment Packages"
@@ -374,9 +433,7 @@ export default function PackagesPageClient() {
             </div>
           </div>
         </div>
-      </section> */}
+      </section>
     </main>
   );
 }
-
-

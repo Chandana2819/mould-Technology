@@ -24,18 +24,15 @@ async function uploadFile(file: File): Promise<string> {
   return data.imageUrl;
 }
 
-const PLAN_LIMITS: Record<string, Record<string, number>> = {
-  companyGallery: { free: 0, basic: 10, professional: 15, enterprise: Infinity },
-  factoryGallery: { free: 0, basic: 10, professional: 30, enterprise: Infinity },
-  productSupplies: { free: 5, basic: 25, professional: 100, enterprise: Infinity },
-  productGallery: { free: 10, basic: 50, professional: 100, enterprise: Infinity },
-  videoGallery: { free: 0, basic: 5, professional: 20, enterprise: Infinity },
-  productCatalogues: { free: 0, basic: 2, professional: 10, enterprise: Infinity },
-  companyBrochure: { free: 0, basic: 5, professional: 10, enterprise: Infinity },
-  certifications: { free: 0, basic: 5, professional: 10, enterprise: Infinity },
-  brandsRepresented: { free: 0, basic: 10, professional: Infinity, enterprise: Infinity },
-  industriesServed: { free: 5, basic: 20, professional: Infinity, enterprise: Infinity },
-  exportMarkets: { free: 0, basic: 5, professional: 10, enterprise: Infinity },
+async function uploadDocument(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("document", file);
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload/document`, {
+    method: "POST",
+    body: formData,
+  });
+  const data = await res.json();
+  return data.documentUrl;
 }
 
 export default function EditDirectoryPage() {
@@ -57,8 +54,46 @@ export default function EditDirectoryPage() {
   const [industryLevels, setIndustryLevels] = useState<any[][]>([]);
   const [industrySelected, setIndustrySelected] = useState<number[]>([]);
 
-  const maxCoverImages = listingEligibility?.maxCoverImages ?? 0
-  const allowWhatsapp = listingEligibility?.allowWhatsapp ?? false
+  // ✅ Helper: Check if a value is unlimited
+  const isUnlimited = (value: any): boolean => {
+    return value === null || value === "Unlimited" || value === Infinity;
+  };
+
+  // ✅ Helper: Get display limit
+  const getDisplayLimit = (value: any): string | number => {
+    if (isUnlimited(value)) return "Unlimited";
+    return value;
+  };
+
+  // ✅ Helper: Check if feature is allowed (null = unlimited = allowed)
+  const isFeatureAllowed = (value: any): boolean => {
+    if (value === null || value === "Unlimited") return true;
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value > 0;
+    if (typeof value === "string") {
+      return value.length > 0 && value !== "false" && value !== "0";
+    }
+    return !!value;
+  };
+
+  // ✅ Helper: Get numeric limit (null = unlimited)
+  const getFeatureLimit = (value: any): number | null => {
+    if (value === null || value === "Unlimited") return null;
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const parsed = parseInt(value);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+
+  const maxCoverImages = listingEligibility?.maxCoverImages ?? 0;
+  const allowWhatsapp = listingEligibility?.allowWhatsapp ?? false;
+
+  // Check if user is on Professional or Enterprise for unlimited features
+  const isProfessional = profileLimits?.plan === "professional";
+  const isEnterprise = profileLimits?.plan === "enterprise";
+  const isProfessionalOrEnterprise = isProfessional || isEnterprise;
 
   useEffect(() => {
     loadGeo().then(setGeo).catch(console.error);
@@ -98,7 +133,6 @@ export default function EditDirectoryPage() {
         );
         const data = await res.json();
 
-        // Ensure coverImageUrl is an array
         let coverImages = [];
         if (Array.isArray(data.coverImageUrl)) {
           coverImages = data.coverImageUrl;
@@ -108,7 +142,6 @@ export default function EditDirectoryPage() {
           coverImages = [""];
         }
 
-        // Ensure all fields exist with proper defaults
         setDirectory({
           id: data.id,
           name: data.name || "",
@@ -193,31 +226,19 @@ export default function EditDirectoryPage() {
     }));
   };
 
-  const handleGalleryUpload = async (field: string, index: number, file: File) => {
-    const url = await uploadFile(file)
-    updateArrayItem(field, index, url)
-  }
+  const handleImageUpload = async (
+    field: string,
+    index: number,
+    file: File
+  ) => {
+    const url = await uploadFile(file);
+    updateArrayItem(field, index, url);
+  };
 
- /* ================= PRODUCT CATALOGUE UPLOAD ================= */
-  // ✅ Handle catalogue upload specifically
   const handleCatalogueUpload = async (field: string, index: number, file: File) => {
     setUploadingCatalogue(true);
     try {
-      const formData = new FormData();
-      formData.append("document", file);
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload/document`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "File upload failed");
-      }
-
-      const data = await res.json();
-      const url = data.documentUrl;
+      const url = await uploadDocument(file);
       updateArrayItem(field, index, url);
     } catch (error: any) {
       setSaveError(error.message || "Failed to upload document");
@@ -232,7 +253,6 @@ export default function EditDirectoryPage() {
       return;
     }
 
-    // Client-side validation
     const validationErrors: string[] = [];
     if (!directory.name?.trim()) validationErrors.push("Company name is required.");
     if (!directory.phoneNumber?.trim()) validationErrors.push("Phone number is required.");
@@ -253,6 +273,7 @@ export default function EditDirectoryPage() {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+
     try {
       setSaving(true);
       setSaveError("");
@@ -274,10 +295,8 @@ export default function EditDirectoryPage() {
         .filter(Boolean)
         .join(", ");
 
-      // Filter out empty strings from arrays
       const cleanArray = (arr: any[]) => arr.filter((item) => item && item.trim().length > 0);
 
-      // Prepare clean payload
       const payload = {
         name: directory.name,
         slug: directory.slug,
@@ -310,8 +329,6 @@ export default function EditDirectoryPage() {
         industryId: Number(directory.industryId),
       };
 
-      console.log("Saving payload:", payload);
-
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/suppliers/${directory.id}`, {
         method: "PUT",
         headers: {
@@ -323,13 +340,10 @@ export default function EditDirectoryPage() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        console.error("Save error response:", errorData);
         setSaveError(errorData.error || "Failed to save changes");
         return;
       }
 
-      const data = await res.json();
-      console.log("Save successful:", data);
       setSaveSuccess(true);
       setTimeout(() => {
         router.push("/recruiter/dashboard");
@@ -348,23 +362,6 @@ export default function EditDirectoryPage() {
   const states = directory.country ? geo.State.getStatesOfCountry(directory.country) : [];
   const cities = directory.state ? geo.City.getCitiesOfState(directory.country, directory.state) : [];
   const countries = geo.Country.getAllCountries();
-
-  // Safe helper functions for profile limits
-  const getLimitNumber = (key: keyof CompanyProfileEligibility): number | null => {
-    const val = profileLimits?.[key];
-    if (typeof val === "number") return val;
-    if (val === null) return null;
-    return null;
-  };
-
-  const getLimitBoolean = (key: keyof CompanyProfileEligibility): boolean => {
-    return !!profileLimits?.[key];
-  };
-
-  const hasLimit = (key: keyof CompanyProfileEligibility): boolean => {
-    const val = profileLimits?.[key];
-    return val !== null && val !== undefined && val !== false && val !== 0;
-  };
 
   return (
     <div className="max-w-4xl mx-auto p-10 space-y-6">
@@ -488,7 +485,7 @@ export default function EditDirectoryPage() {
       {/* GOOGLE MAP - GATED BY PACKAGE */}
       <Section title="Google Map">
         <PlanGatedSection
-          allowed={getLimitBoolean("googleMap")}
+          allowed={isFeatureAllowed(profileLimits?.googleMap)}
           upgradeMessage="Google Map is available on Basic plan and above."
         >
           <div>
@@ -538,10 +535,7 @@ export default function EditDirectoryPage() {
 
       {/* DESCRIPTION */}
       {(() => {
-        const wordLimit: number | null =
-          typeof profileLimits?.descriptionLimit === "number"
-            ? profileLimits.descriptionLimit
-            : null;
+        const wordLimit = getFeatureLimit(profileLimits?.descriptionLimit);
         const wordCount = directory.description
           ? directory.description.trim().split(/\s+/).filter(Boolean).length
           : 0;
@@ -567,11 +561,10 @@ export default function EditDirectoryPage() {
                 }
                 setDirectory({ ...directory, description: raw });
               }}
-              className={`w-full rounded-md border p-2 text-sm focus:outline-none focus:ring-1 ${
-                atLimit
+              className={`w-full rounded-md border p-2 text-sm focus:outline-none focus:ring-1 ${atLimit
                   ? "border-red-400 focus:border-red-500 focus:ring-red-500"
                   : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-              }`}
+                }`}
               placeholder="Enter your description..."
             />
             <div className="flex items-center justify-between mt-1">
@@ -589,19 +582,20 @@ export default function EditDirectoryPage() {
         );
       })()}
 
-
       {/* LOGO */}
       <div className="grid grid-cols-2 gap-6">
         <UploadBox
           label="Company Logo"
           value={directory.logoUrl}
-          onUpload={(file) => handleImageUpload(file, directory, setDirectory, "logoUrl")}
+          onUpload={(file) => {
+            uploadFile(file).then(url => setDirectory({ ...directory, logoUrl: url }));
+          }}
         />
       </div>
 
       {/* COVER IMAGES */}
       <Section title="Cover Images">
-        {maxCoverImages === 0 ? (
+        {!isFeatureAllowed(maxCoverImages) ? (
           <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
             Cover images are available on the Basic plan and above. Upgrade your
             plan to add a cover banner to your showroom page.
@@ -609,19 +603,19 @@ export default function EditDirectoryPage() {
         ) : (
           <>
             <p className="text-xs text-gray-400 mb-2">
-              Your plan allows up to {maxCoverImages} cover image
-              {maxCoverImages > 1 ? "s" : ""}.
-              {maxCoverImages > 1 ? " Multiple images will display as a carousel." : ""}
+              Your plan allows up to {getDisplayLimit(maxCoverImages)} cover image
+              {typeof maxCoverImages === "number" && maxCoverImages !== 1 ? "s" : ""}.
+              {isUnlimited(maxCoverImages) ? "" : maxCoverImages > 1 ? " Multiple images will display as a carousel." : ""}
             </p>
             <GallerySection
               field="coverImages"
               items={directory.coverImages}
-              onUpload={handleGalleryUpload}
+              onUpload={handleImageUpload}
               onAdd={addArrayItem}
               onRemove={removeArrayItem}
               addLabel="+ Add cover image"
               uploadLabel="Cover Image"
-              max={maxCoverImages}
+              max={getFeatureLimit(maxCoverImages)}
               allowRemoveFirst
             />
           </>
@@ -633,6 +627,7 @@ export default function EditDirectoryPage() {
         {listingEligibility && (
           <p className="text-sm text-gray-500 mb-3">
             Products inside your directory do not count toward your directory slot limit.
+            Your plan allows {getDisplayLimit(listingEligibility.effectiveLimit)} product supplies.
           </p>
         )}
         {directory.productSupplies.map((item: string, i: number) => (
@@ -669,32 +664,47 @@ export default function EditDirectoryPage() {
 
       {/* PRODUCT CATALOGUES - GATED BY PACKAGE */}
       <Section title="Product Catalogues">
-        <p className="text-sm text-gray-500 mb-3">
-          Upload your product catalogues (PDFs, brochures, etc.).
-        </p>
-        <div className="grid grid-cols-2 gap-4">
-          {directory.productCatalogues.map((url: string, i: number) => (
-            <div key={i} className="space-y-1">
-              <UploadBox
-                label={`Product Catalogue ${i + 1}`}
-                value={url}
-                onUpload={(file) => handleCatalogueUpload("productCatalogues", i, file)}
-              />
-              <button type="button" onClick={() => removeArrayItem("productCatalogues", i)}>
-                ✕ Remove
+        <PlanGatedSection
+          allowed={isFeatureAllowed(profileLimits?.productCatalogues)}
+          upgradeMessage="Product Catalogues are available on Basic plan and above."
+        >
+          <p className="text-sm text-gray-500 mb-3">
+            Upload your product catalogues (PDFs, brochures, etc.).
+            {!isUnlimited(profileLimits?.productCatalogues) &&
+              ` Your plan allows up to ${getDisplayLimit(profileLimits?.productCatalogues)} catalogues.`}
+            {isUnlimited(profileLimits?.productCatalogues) &&
+              ` Unlimited catalogues on your plan.`}
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            {directory.productCatalogues.map((url: string, i: number) => (
+              <div key={i} className="space-y-1">
+                <UploadBox
+                  label={`Product Catalogue ${i + 1}`}
+                  value={url}
+                  onUpload={(file) => handleCatalogueUpload("productCatalogues", i, file)}
+                />
+                <button type="button" onClick={() => removeArrayItem("productCatalogues", i)}>
+                  ✕ Remove
+                </button>
+              </div>
+            ))}
+            <div className="col-span-2">
+              <button
+                type="button"
+                onClick={() => addArrayItem("productCatalogues")}
+                disabled={
+                  !isUnlimited(profileLimits?.productCatalogues) &&
+                  directory.productCatalogues.length >= (getFeatureLimit(profileLimits?.productCatalogues) ?? 0)
+                }
+                className="disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                + Add product catalogue
+                {!isUnlimited(profileLimits?.productCatalogues) &&
+                  ` (${directory.productCatalogues.length}/${getDisplayLimit(profileLimits?.productCatalogues)})`}
               </button>
             </div>
-          ))}
-          <div className="col-span-2">
-            <button
-              type="button"
-              onClick={() => addArrayItem("productCatalogues")}
-              className="disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              + Add product catalogue
-            </button>
           </div>
-        </div>
+        </PlanGatedSection>
       </Section>
 
       {/* SOCIAL LINKS - WhatsApp gated */}
@@ -782,141 +792,299 @@ export default function EditDirectoryPage() {
 
       {/* VIDEO GALLERY - GATED BY PACKAGE */}
       <Section title="YouTube Video Links">
-        {directory.videoGallery.map((item: string, i: number) => (
-          <div key={i} className="flex gap-2">
-            <input
-              className="input flex-1"
-              value={item}
-              onChange={(e) => {
-                const arr = [...directory.videoGallery]
-                arr[i] = e.target.value
-                setDirectory({ ...directory, videoGallery: arr })
-              }}
-            />
-            {i > 0 && (
-              <button type="button" onClick={() => {
-                const arr = directory.videoGallery.filter((_: any, idx: number) => idx !== i)
-                setDirectory({ ...directory, videoGallery: arr })
-              }}>✕</button>
-            )}
-          </div>
-        ))}
-        <button type="button" onClick={() => setDirectory({ ...directory, videoGallery: [...directory.videoGallery, ""] })}>
-          + Add video
-        </button>
+        <PlanGatedSection
+          allowed={isFeatureAllowed(profileLimits?.productVideos)}
+          upgradeMessage="Product Videos are available on Basic plan and above."
+        >
+          <p className="text-xs text-gray-400 mb-2">
+            {isUnlimited(profileLimits?.productVideos)
+              ? "Unlimited videos on your plan."
+              : `Your plan allows up to ${getDisplayLimit(profileLimits?.productVideos)} videos.`}
+          </p>
+          {directory.videoGallery.map((item: string, i: number) => (
+            <div key={i} className="flex gap-2">
+              <input
+                className="input flex-1"
+                value={item}
+                onChange={(e) => {
+                  const arr = [...directory.videoGallery]
+                  arr[i] = e.target.value
+                  setDirectory({ ...directory, videoGallery: arr })
+                }}
+                placeholder="YouTube URL"
+              />
+              {i > 0 && (
+                <button type="button" onClick={() => {
+                  const arr = directory.videoGallery.filter((_: any, idx: number) => idx !== i)
+                  setDirectory({ ...directory, videoGallery: arr })
+                }}>✕</button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setDirectory({ ...directory, videoGallery: [...directory.videoGallery, ""] })}
+            disabled={
+              !isUnlimited(profileLimits?.productVideos) &&
+              directory.videoGallery.length >= (getFeatureLimit(profileLimits?.productVideos) ?? 0)
+            }
+            className="disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            + Add video
+            {!isUnlimited(profileLimits?.productVideos) &&
+              ` (${directory.videoGallery.length}/${getDisplayLimit(profileLimits?.productVideos)})`}
+          </button>
+        </PlanGatedSection>
       </Section>
 
       {/* PRODUCT GALLERY - GATED BY PACKAGE */}
       <Section title="Product Gallery">
-        <GallerySection
-          field="productGallery"
-          items={directory.productGallery}
-          onUpload={handleGalleryUpload}
-          onAdd={addArrayItem}
-          onRemove={removeArrayItem}
-          addLabel="+ Add product image"
-        />
+        <PlanGatedSection
+          allowed={isFeatureAllowed(profileLimits?.productImages)}
+          upgradeMessage="Product Gallery is available on all plans. Free plan allows up to 10 images."
+        >
+          <p className="text-xs text-gray-400 mb-2">
+            {isUnlimited(profileLimits?.productImages)
+              ? "Unlimited product images on your plan."
+              : `Your plan allows up to ${getDisplayLimit(profileLimits?.productImages)} product images.`}
+          </p>
+          <GallerySection
+            field="productGallery"
+            items={directory.productGallery}
+            onUpload={handleImageUpload}
+            onAdd={addArrayItem}
+            onRemove={removeArrayItem}
+            addLabel="+ Add product image"
+            max={getFeatureLimit(profileLimits?.productImages)}
+          />
+        </PlanGatedSection>
       </Section>
 
       {/* COMPANY GALLERY - GATED BY PACKAGE */}
       <Section title="Company Gallery">
-        <GallerySection
-          field="companyGallery"
-          items={directory.companyGallery}
-          onUpload={handleGalleryUpload}
-          onAdd={addArrayItem}
-          onRemove={removeArrayItem}
-          addLabel="+ Add company image"
-        />
+        <PlanGatedSection
+          allowed={isFeatureAllowed(profileLimits?.galleryImages)}
+          upgradeMessage="Company Gallery is available on Basic plan and above."
+        >
+          <p className="text-xs text-gray-400 mb-2">
+            {isUnlimited(profileLimits?.galleryImages)
+              ? "Unlimited company images on your plan."
+              : `Your plan allows up to ${getDisplayLimit(profileLimits?.galleryImages)} company images.`}
+          </p>
+          <GallerySection
+            field="companyGallery"
+            items={directory.companyGallery}
+            onUpload={handleImageUpload}
+            onAdd={addArrayItem}
+            onRemove={removeArrayItem}
+            addLabel="+ Add company image"
+            max={getFeatureLimit(profileLimits?.galleryImages)}
+          />
+        </PlanGatedSection>
       </Section>
 
       {/* FACTORY GALLERY - GATED BY PACKAGE */}
       <Section title="Factory Gallery">
-        <GallerySection
-          field="factoryGallery"
-          items={directory.factoryGallery}
-          onUpload={handleGalleryUpload}
-          onAdd={addArrayItem}
-          onRemove={removeArrayItem}
-          addLabel="+ Add factory image"
-        />
+        <PlanGatedSection
+          allowed={isFeatureAllowed(profileLimits?.factoryImages)}
+          upgradeMessage="Factory Gallery is available on Basic plan and above."
+        >
+          <p className="text-xs text-gray-400 mb-2">
+            {isUnlimited(profileLimits?.factoryImages)
+              ? "Unlimited factory images on your plan."
+              : `Your plan allows up to ${getDisplayLimit(profileLimits?.factoryImages)} factory images.`}
+          </p>
+          <GallerySection
+            field="factoryGallery"
+            items={directory.factoryGallery}
+            onUpload={handleImageUpload}
+            onAdd={addArrayItem}
+            onRemove={removeArrayItem}
+            addLabel="+ Add factory image"
+            max={getFeatureLimit(profileLimits?.factoryImages)}
+          />
+        </PlanGatedSection>
       </Section>
 
       {/* COMPANY BROCHURE - GATED BY PACKAGE */}
       <Section title="Company Brochure">
-        <GallerySection
-          field="companyBrochure"
-          items={directory.companyBrochure}
-          onUpload={handleGalleryUpload}
-          onAdd={addArrayItem}
-          onRemove={removeArrayItem}
-          addLabel="+ Add brochure file"
-          uploadLabel="Brochure File"
-        />
+        <PlanGatedSection
+          allowed={isFeatureAllowed(profileLimits?.brochures)}
+          upgradeMessage="Company Brochure is available on Basic plan and above."
+        >
+          <GallerySection
+            field="companyBrochure"
+            items={directory.companyBrochure}
+            onUpload={handleImageUpload}
+            onAdd={addArrayItem}
+            onRemove={removeArrayItem}
+            addLabel="+ Add brochure file"
+            uploadLabel="Brochure File"
+          />
+        </PlanGatedSection>
       </Section>
 
       {/* CERTIFICATIONS - GATED BY PACKAGE */}
       <Section title="Certifications">
-        <GallerySection
-          field="certifications"
-          items={directory.certifications}
-          onUpload={handleGalleryUpload}
-          onAdd={addArrayItem}
-          onRemove={removeArrayItem}
-          addLabel="+ Add certification file"
-          uploadLabel="Certification File"
-        />
+        <PlanGatedSection allowed={isFeatureAllowed(profileLimits?.certifications)}
+          upgradeMessage="Certifications are available on Basic plan and above."
+        >
+          <GallerySection
+            field="certifications"
+            items={directory.certifications}
+            onUpload={handleImageUpload}
+            onAdd={addArrayItem}
+            onRemove={removeArrayItem}
+            addLabel="+ Add certification file"
+            uploadLabel="Certification File"
+          />
+        </PlanGatedSection>
       </Section>
 
-      {/* BRANDS REPRESENTED - GATED BY PACKAGE */}
+      {/* ✅ BRANDS REPRESENTED - FIXED: Shows Unlimited for Professional/Enterprise */}
       <Section title="Brands Represented">
-        <DynamicListField
-          field="brandsRepresented"
-          items={directory.brandsRepresented}
-          onChange={updateArrayItem}
-          onAdd={addArrayItem}
-          onRemove={removeArrayItem}
-          addLabel="+ Add brand"
-        />
+        {(() => {
+          const isUnlimitedBrands = isUnlimited(profileLimits?.brandsRepresented);
+          const limit = getFeatureLimit(profileLimits?.brandsRepresented);
+
+          // If not allowed at all (Free plan has 0)
+          if (!isFeatureAllowed(profileLimits?.brandsRepresented)) {
+            return (
+              <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+                Brands Represented are available on Basic plan and above.
+                {isProfessionalOrEnterprise && " Your plan includes unlimited brands."}
+              </div>
+            );
+          }
+
+          return (
+            <>
+              <p className="text-xs text-gray-400 mb-2">
+                {isUnlimitedBrands
+                  ? "✅ Unlimited brands on your Professional/Enterprise plan."
+                  : `Your plan allows up to ${limit} brands.`}
+              </p>
+              {directory.brandsRepresented.map((item: string, i: number) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    className="input flex-1"
+                    value={item}
+                    onChange={(e) => updateArrayItem("brandsRepresented", i, e.target.value)}
+                    placeholder="Brand name"
+                  />
+                  {i > 0 && (
+                    <button type="button" onClick={() => removeArrayItem("brandsRepresented", i)}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => addArrayItem("brandsRepresented")}
+                disabled={!isUnlimitedBrands && directory.brandsRepresented.length >= (limit ?? 0)}
+                className="disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                + Add Brand
+                {!isUnlimitedBrands && limit !== null &&
+                  ` (${directory.brandsRepresented.length}/${limit})`}
+                {isUnlimitedBrands && " (Unlimited)"}
+              </button>
+            </>
+          );
+        })()}
       </Section>
 
-      {/* INDUSTRIES SERVED - GATED BY PACKAGE */}
+      {/* ✅ INDUSTRIES SERVED - FIXED: Shows Unlimited for Professional/Enterprise */}
       <Section title="Industries Served">
-        <DynamicListField
-          field="industriesServed"
-          items={directory.industriesServed}
-          onChange={updateArrayItem}
-          onAdd={addArrayItem}
-          onRemove={removeArrayItem}
-          addLabel="+ Add industry served"
-        />
+        {(() => {
+          const isUnlimitedIndustries = isUnlimited(profileLimits?.industriesServed);
+          const limit = getFeatureLimit(profileLimits?.industriesServed);
+
+          // If not allowed at all (shouldn't happen since Free has 5)
+          if (!isFeatureAllowed(profileLimits?.industriesServed)) {
+            return (
+              <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+                Industries Served are available on Free plan (limited to 5) and above.
+              </div>
+            );
+          }
+
+          return (
+            <>
+              <p className="text-xs text-gray-400 mb-2">
+                {isUnlimitedIndustries
+                  ? "✅ Unlimited industries on your Professional/Enterprise plan."
+                  : `Your plan allows up to ${limit} industries.`}
+              </p>
+              {directory.industriesServed.map((item: string, i: number) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    className="input flex-1"
+                    value={item}
+                    onChange={(e) => updateArrayItem("industriesServed", i, e.target.value)}
+                    placeholder="Industry name"
+                  />
+                  {i > 0 && (
+                    <button type="button" onClick={() => removeArrayItem("industriesServed", i)}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => addArrayItem("industriesServed")}
+                disabled={!isUnlimitedIndustries && directory.industriesServed.length >= (limit ?? 0)}
+                className="disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                + Add Industry
+                {!isUnlimitedIndustries && limit !== null &&
+                  ` (${directory.industriesServed.length}/${limit})`}
+                {isUnlimitedIndustries && " (Unlimited)"}
+              </button>
+            </>
+          );
+        })()}
       </Section>
 
       {/* EXPORT MARKETS - GATED BY PACKAGE */}
       <Section title="Export Markets">
-        <DynamicListField
-          field="exportMarkets"
-          items={directory.exportMarkets}
-          onChange={updateArrayItem}
-          onAdd={addArrayItem}
-          onRemove={removeArrayItem}
-          addLabel="+ Add export market"
-        />
+        <PlanGatedSection
+          allowed={isFeatureAllowed(profileLimits?.exportMarkets)}
+          upgradeMessage="Export Markets are available on Basic plan and above."
+        >
+          {directory.exportMarkets.map((item: string, i: number) => (
+            <div key={i} className="flex gap-2">
+              <input
+                className="input flex-1"
+                value={item}
+                onChange={(e) => updateArrayItem("exportMarkets", i, e.target.value)}
+                placeholder="Country name"
+              />
+              {i > 0 && (
+                <button type="button" onClick={() => removeArrayItem("exportMarkets", i)}>
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+          <button type="button" onClick={() => addArrayItem("exportMarkets")}>
+            + Add Country
+          </button>
+        </PlanGatedSection>
       </Section>
 
       {/* MANUFACTURING CAPABILITIES - GATED BY PACKAGE */}
       <Section title="Manufacturing Capabilities">
         <PlanGatedSection
-          allowed={!!profileLimits?.manufacturingCapabilities}
+          allowed={isFeatureAllowed(profileLimits?.manufacturingCapabilities)}
           upgradeMessage="Manufacturing Capabilities are available on Basic plan and above."
         >
           <p className="text-xs text-gray-400 mb-2">
-            {profileLimits?.manufacturingCapabilities === "Basic" &&
-              "Basic plan: Standard text description."}
-            {profileLimits?.manufacturingCapabilities === "Complete" &&
-              "Professional plan: Complete text description."}
-            {profileLimits?.manufacturingCapabilities === "Complete + Photos + Video" &&
-              "Enterprise plan: Complete text + Photos + Videos."}
+            {typeof profileLimits?.manufacturingCapabilities === "string" && profileLimits.manufacturingCapabilities}
+            {isEnterprise && " — Enterprise plan: Complete text + Photos + Videos."}
+            {isProfessional && profileLimits?.manufacturingCapabilities === "Complete" && " — Professional plan: Complete text description."}
           </p>
           <RichTextEditor
             value={directory.manufacturingCapabilities}
@@ -924,34 +1092,49 @@ export default function EditDirectoryPage() {
               setDirectory({ ...directory, manufacturingCapabilities: val })
             }
           />
+          {isEnterprise && (
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Enterprise Feature:</strong> You can upload photos and videos
+                to showcase your manufacturing capabilities. Use the rich text editor
+                above to embed images and video links.
+              </p>
+            </div>
+          )}
         </PlanGatedSection>
       </Section>
 
       {/* MACHINERY LIST - GATED BY PACKAGE */}
       <Section title="Machinery List">
         <PlanGatedSection
-          allowed={!!profileLimits?.machineryList}
+          allowed={isFeatureAllowed(profileLimits?.machineryList)}
           upgradeMessage="Machinery List is available on Basic plan and above."
         >
           <p className="text-xs text-gray-400 mb-2">
-            {profileLimits?.machineryList === "Basic" &&
-              "Basic plan: Basic text list."}
-            {profileLimits?.machineryList === "Detailed" &&
-              "Professional plan: Detailed text list."}
-            {profileLimits?.machineryList === "Detailed with Images" &&
-              "Enterprise plan: Detailed text + Machinery Images."}
+            {typeof profileLimits?.machineryList === "string" && profileLimits.machineryList}
+            {isEnterprise && " — Enterprise plan: Detailed text + Machinery Images."}
+            {isProfessional && profileLimits?.machineryList === "Detailed" && " — Professional plan: Detailed text list."}
           </p>
           <RichTextEditor
             value={directory.machineryList}
             onChange={(val: string) => setDirectory({ ...directory, machineryList: val })}
           />
+          {isEnterprise && (
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Enterprise Feature:</strong> You can upload machinery images
+                alongside your text descriptions. Use the rich text editor to embed
+                images of your machinery.
+              </p>
+            </div>
+          )}
         </PlanGatedSection>
       </Section>
 
       {/* QUALITY STANDARDS - GATED BY PACKAGE */}
       <Section title="Quality Standards">
         <PlanGatedSection
-          allowed={getLimitBoolean("qualityStandards")}
+          allowed={isFeatureAllowed(profileLimits?.qualityStandards)}
           upgradeMessage="Quality Standards are available on Basic plan and above."
         >
           <RichTextEditor
@@ -986,10 +1169,9 @@ export default function EditDirectoryPage() {
   );
 }
 
-async function handleImageUpload(file: File, directory: any, setDirectory: any, field: "logoUrl") {
-  const url = await uploadFile(file);
-  setDirectory({ ...directory, [field]: url });
-}
+// ============================================================================
+// Helper Components
+// ============================================================================
 
 function Section({ title, children }: any) {
   return (
@@ -997,46 +1179,6 @@ function Section({ title, children }: any) {
       <h3 className="font-semibold">{title}</h3>
       {children}
     </div>
-  );
-}
-
-function DynamicListField({
-  field,
-  items,
-  onChange,
-  onAdd,
-  onRemove,
-  addLabel,
-  placeholder,
-  
-}: {
-  field: string
-  items: string[]
-  onChange: (field: string, index: number, value: string) => void
-  onAdd: (field: string) => void
-  onRemove: (field: string, index: number) => void
-  addLabel: string
-  placeholder?: string
-}) {
-  return (
-    <>
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-2">
-          <input
-            className="input flex-1"
-            placeholder={placeholder}
-            value={item}
-            onChange={(e) => onChange(field, i, e.target.value)}
-          />
-          {i > 0 && (
-            <button type="button" onClick={() => onRemove(field, i)}>
-              ✕
-            </button>
-          )}
-        </div>
-      ))}
-      <button type="button" onClick={() => onAdd(field)}>{addLabel}</button>
-    </>
   );
 }
 
@@ -1061,7 +1203,7 @@ function GallerySection({
   max?: number | null;
   allowRemoveFirst?: boolean;
 }) {
-  const atLimit = typeof max === "number" && items.length >= max;
+  const atLimit = max != null && items.length >= max;
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -1087,7 +1229,7 @@ function GallerySection({
           className="disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {addLabel}
-          {typeof max === "number" && ` (${items.length}/${max})`}
+          {max !== null && ` (${items.length}/${max})`}
         </button>
       </div>
     </div>

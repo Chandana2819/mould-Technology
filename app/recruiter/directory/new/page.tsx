@@ -105,6 +105,39 @@ export default function AddDirectoryPage() {
   const [industrySelected, setIndustrySelected] = useState<number[]>([]);
   const [geo, setGeo] = useState<Awaited<ReturnType<typeof loadGeo>> | null>(null);
 
+  // ✅ Helper: Check if a value is unlimited
+  const isUnlimited = (value: any): boolean => {
+    return value === null || value === "Unlimited" || value === Infinity;
+  };
+
+  // ✅ Helper: Get display limit
+  const getDisplayLimit = (value: any): string | number => {
+    if (isUnlimited(value)) return "Unlimited";
+    return value;
+  };
+
+  // ✅ Helper: Check if feature is allowed (null = unlimited = allowed)
+  const isFeatureAllowed = (value: any): boolean => {
+    if (value === null || value === "Unlimited") return true;
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value > 0;
+    if (typeof value === "string") {
+      return value.length > 0 && value !== "false" && value !== "0";
+    }
+    return !!value;
+  };
+
+  // ✅ Helper: Get numeric limit (null = unlimited)
+  const getFeatureLimit = (value: any): number | null => {
+    if (value === null || value === "Unlimited") return null;
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const parsed = parseInt(value);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+
   useEffect(() => {
     async function load() {
       const token = localStorage.getItem("token");
@@ -243,8 +276,6 @@ export default function AddDirectoryPage() {
         .filter(Boolean)
         .join(", ");
 
-      // Strip empty strings so gated fields (initialised as [""]) don't
-      // trigger backend plan-restriction errors for Free users.
       const cleanArray = (arr: any[]) =>
         (arr ?? []).filter((item: any) => typeof item === "string" ? item.trim().length > 0 : Boolean(item));
 
@@ -301,27 +332,14 @@ export default function AddDirectoryPage() {
     );
   }
 
-  // Safe helper functions for profile limits
-  const getLimitNumber = (key: keyof CompanyProfileEligibility): number | null => {
-    const val = profileLimits?.[key];
-    if (typeof val === "number") return val;
-    if (val === null) return null;
-    return null;
-  };
-
-  const getLimitBoolean = (key: keyof CompanyProfileEligibility): boolean => {
-    return !!profileLimits?.[key];
-  };
-
-  const hasLimit = (key: keyof CompanyProfileEligibility): boolean => {
-    const val = profileLimits?.[key];
-    return val !== null && val !== undefined && val !== false && val !== 0;
-  };
-
-  // Get product listings limit from the eligibility object
   const effectiveLimit = listingEligibility?.effectiveLimit;
   const productListingsLimit = typeof effectiveLimit === "number" ? effectiveLimit : Infinity;
   const isProductLimitUnlimited = effectiveLimit === "Unlimited" || effectiveLimit === null;
+
+  // Check if user is on Professional or Enterprise for unlimited features
+  const isProfessional = profileLimits?.plan === "professional";
+  const isEnterprise = profileLimits?.plan === "enterprise";
+  const isProfessionalOrEnterprise = isProfessional || isEnterprise;
 
   return (
     <div className="max-w-3xl mx-auto p-10">
@@ -460,7 +478,7 @@ export default function AddDirectoryPage() {
               {/* GOOGLE MAP - GATED BY PACKAGE */}
               <Section title="Google Map">
                 <PlanGatedSection
-                  allowed={getLimitBoolean("googleMap")}
+                  allowed={isFeatureAllowed(profileLimits?.googleMap)}
                   upgradeMessage="Google Map is available on Basic plan and above. Upgrade your plan to add your business location on the map."
                 >
                   <FieldBlock label="Google Maps Embed/Share URL" name="googleMapUrl" />
@@ -498,10 +516,7 @@ export default function AddDirectoryPage() {
 
               {/* DESCRIPTION - with word limit */}
               {(() => {
-                const wordLimit: number | null =
-                  typeof profileLimits?.descriptionLimit === "number"
-                    ? profileLimits.descriptionLimit
-                    : null;
+                const wordLimit = getFeatureLimit(profileLimits?.descriptionLimit);
                 const wordCount = values.description
                   ? values.description.trim().split(/\s+/).filter(Boolean).length
                   : 0;
@@ -520,7 +535,6 @@ export default function AddDirectoryPage() {
                         if (wordLimit !== null) {
                           const words = raw.trimStart().split(/\s+/);
                           if (words.filter(Boolean).length > wordLimit) {
-                            // Truncate to the allowed word count, preserving trailing space intent
                             const truncated = words.slice(0, wordLimit).join(" ");
                             setFieldValue("description", truncated);
                             return;
@@ -528,11 +542,10 @@ export default function AddDirectoryPage() {
                         }
                         setFieldValue("description", raw);
                       }}
-                      className={`w-full rounded-md border p-2 text-sm focus:outline-none focus:ring-1 ${
-                        atLimit
+                      className={`w-full rounded-md border p-2 text-sm focus:outline-none focus:ring-1 ${atLimit
                           ? "border-red-400 focus:border-red-500 focus:ring-red-500"
                           : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                      }`}
+                        }`}
                       placeholder="Enter your description..."
                     />
                     <div className="flex items-center justify-between mt-1">
@@ -648,13 +661,15 @@ export default function AddDirectoryPage() {
               {/* PRODUCT CATALOGUES - GATED BY PACKAGE */}
               <Section title="Product Catalogues">
                 <PlanGatedSection
-                  allowed={hasLimit("productCatalogues") && (getLimitNumber("productCatalogues") ?? 0) > 0}
+                  allowed={isFeatureAllowed(profileLimits?.productCatalogues)}
                   upgradeMessage="Product Catalogues are available on Basic plan and above."
                 >
                   <p className="text-sm text-gray-500 mb-3">
                     Upload your product catalogues (PDFs, brochures, etc.).
-                    {getLimitNumber("productCatalogues") !== null &&
-                      ` Your plan allows up to ${getLimitNumber("productCatalogues")} catalogues.`}
+                    {!isUnlimited(profileLimits?.productCatalogues) &&
+                      ` Your plan allows up to ${getDisplayLimit(profileLimits?.productCatalogues)} catalogues.`}
+                    {isUnlimited(profileLimits?.productCatalogues) &&
+                      ` Unlimited catalogues on your plan.`}
                   </p>
                   <FieldArray name="productCatalogues">
                     {({ push, remove }) => (
@@ -678,14 +693,14 @@ export default function AddDirectoryPage() {
                             type="button"
                             onClick={() => push("")}
                             disabled={
-                              getLimitNumber("productCatalogues") !== null &&
-                              values.productCatalogues.length >= (getLimitNumber("productCatalogues") ?? 0)
+                              !isUnlimited(profileLimits?.productCatalogues) &&
+                              values.productCatalogues.length >= (getFeatureLimit(profileLimits?.productCatalogues) ?? 0)
                             }
                             className="disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             + Add product catalogue
-                            {getLimitNumber("productCatalogues") !== null &&
-                              ` (${values.productCatalogues.length}/${getLimitNumber("productCatalogues")})`}
+                            {!isUnlimited(profileLimits?.productCatalogues) &&
+                              ` (${values.productCatalogues.length}/${getDisplayLimit(profileLimits?.productCatalogues)})`}
                           </button>
                         </div>
                       </div>
@@ -736,13 +751,13 @@ export default function AddDirectoryPage() {
               {/* VIDEO GALLERY - GATED BY PACKAGE */}
               <Section title="YouTube Video Gallery">
                 <PlanGatedSection
-                  allowed={hasLimit("productVideos") && (getLimitNumber("productVideos") ?? 0) > 0}
+                  allowed={isFeatureAllowed(profileLimits?.productVideos)}
                   upgradeMessage="Product Videos are available on Basic plan and above."
                 >
                   <p className="text-xs text-gray-400 mb-2">
-                    {getLimitNumber("productVideos") !== null
-                      ? `Your plan allows up to ${getLimitNumber("productVideos")} videos.`
-                      : "Unlimited videos on your plan."}
+                    {isUnlimited(profileLimits?.productVideos)
+                      ? "Unlimited videos on your plan."
+                      : `Your plan allows up to ${getDisplayLimit(profileLimits?.productVideos)} videos.`}
                   </p>
                   <FieldArray name="videoGallery">
                     {({ push, remove }) => (
@@ -757,14 +772,14 @@ export default function AddDirectoryPage() {
                           type="button"
                           onClick={() => push("")}
                           disabled={
-                            getLimitNumber("productVideos") !== null &&
-                            values.videoGallery.length >= (getLimitNumber("productVideos") ?? 0)
+                            !isUnlimited(profileLimits?.productVideos) &&
+                            values.videoGallery.length >= (getFeatureLimit(profileLimits?.productVideos) ?? 0)
                           }
                           className="disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           + Add video
-                          {getLimitNumber("productVideos") !== null &&
-                            ` (${values.videoGallery.length}/${getLimitNumber("productVideos")})`}
+                          {!isUnlimited(profileLimits?.productVideos) &&
+                            ` (${values.videoGallery.length}/${getDisplayLimit(profileLimits?.productVideos)})`}
                         </button>
                       </>
                     )}
@@ -775,13 +790,13 @@ export default function AddDirectoryPage() {
               {/* PRODUCT GALLERY - GATED BY PACKAGE */}
               <Section title="Product Gallery">
                 <PlanGatedSection
-                  allowed={hasLimit("productImages") && (getLimitNumber("productImages") ?? 0) > 0}
+                  allowed={isFeatureAllowed(profileLimits?.productImages)}
                   upgradeMessage="Product Gallery is available on all plans. Free plan allows up to 10 images."
                 >
                   <p className="text-xs text-gray-400 mb-2">
-                    {getLimitNumber("productImages") !== null
-                      ? `Your plan allows up to ${getLimitNumber("productImages")} product images.`
-                      : "Unlimited product images on your plan."}
+                    {isUnlimited(profileLimits?.productImages)
+                      ? "Unlimited product images on your plan."
+                      : `Your plan allows up to ${getDisplayLimit(profileLimits?.productImages)} product images.`}
                   </p>
                   <FieldArray name="productGallery">
                     {({ push, remove }) => (
@@ -796,14 +811,14 @@ export default function AddDirectoryPage() {
                           type="button"
                           onClick={() => push("")}
                           disabled={
-                            getLimitNumber("productImages") !== null &&
-                            values.productGallery.length >= (getLimitNumber("productImages") ?? 0)
+                            !isUnlimited(profileLimits?.productImages) &&
+                            values.productGallery.length >= (getFeatureLimit(profileLimits?.productImages) ?? 0)
                           }
                           className="disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           + Add Product Image
-                          {getLimitNumber("productImages") !== null &&
-                            ` (${values.productGallery.length}/${getLimitNumber("productImages")})`}
+                          {!isUnlimited(profileLimits?.productImages) &&
+                            ` (${values.productGallery.length}/${getDisplayLimit(profileLimits?.productImages)})`}
                         </button>
                       </>
                     )}
@@ -814,13 +829,13 @@ export default function AddDirectoryPage() {
               {/* COMPANY GALLERY - GATED BY PACKAGE */}
               <Section title="Company Gallery">
                 <PlanGatedSection
-                  allowed={hasLimit("galleryImages") && (getLimitNumber("galleryImages") ?? 0) > 0}
+                  allowed={isFeatureAllowed(profileLimits?.galleryImages)}
                   upgradeMessage="Company Gallery is available on Basic plan and above."
                 >
                   <p className="text-xs text-gray-400 mb-2">
-                    {getLimitNumber("galleryImages") !== null
-                      ? `Your plan allows up to ${getLimitNumber("galleryImages")} company images.`
-                      : "Unlimited company images on your plan."}
+                    {isUnlimited(profileLimits?.galleryImages)
+                      ? "Unlimited company images on your plan."
+                      : `Your plan allows up to ${getDisplayLimit(profileLimits?.galleryImages)} company images.`}
                   </p>
                   <FieldArray name="companyGallery">
                     {({ push, remove }) => (
@@ -835,14 +850,14 @@ export default function AddDirectoryPage() {
                           type="button"
                           onClick={() => push("")}
                           disabled={
-                            getLimitNumber("galleryImages") !== null &&
-                            values.companyGallery.length >= (getLimitNumber("galleryImages") ?? 0)
+                            !isUnlimited(profileLimits?.galleryImages) &&
+                            values.companyGallery.length >= (getFeatureLimit(profileLimits?.galleryImages) ?? 0)
                           }
                           className="disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           + Add Company Image
-                          {getLimitNumber("galleryImages") !== null &&
-                            ` (${values.companyGallery.length}/${getLimitNumber("galleryImages")})`}
+                          {!isUnlimited(profileLimits?.galleryImages) &&
+                            ` (${values.companyGallery.length}/${getDisplayLimit(profileLimits?.galleryImages)})`}
                         </button>
                       </>
                     )}
@@ -853,13 +868,13 @@ export default function AddDirectoryPage() {
               {/* FACTORY GALLERY - GATED BY PACKAGE */}
               <Section title="Factory Gallery">
                 <PlanGatedSection
-                  allowed={hasLimit("factoryImages") && (getLimitNumber("factoryImages") ?? 0) > 0}
+                  allowed={isFeatureAllowed(profileLimits?.factoryImages)}
                   upgradeMessage="Factory Gallery is available on Basic plan and above."
                 >
                   <p className="text-xs text-gray-400 mb-2">
-                    {getLimitNumber("factoryImages") !== null
-                      ? `Your plan allows up to ${getLimitNumber("factoryImages")} factory images.`
-                      : "Unlimited factory images on your plan."}
+                    {isUnlimited(profileLimits?.factoryImages)
+                      ? "Unlimited factory images on your plan."
+                      : `Your plan allows up to ${getDisplayLimit(profileLimits?.factoryImages)} factory images.`}
                   </p>
                   <FieldArray name="factoryGallery">
                     {({ push, remove }) => (
@@ -874,14 +889,14 @@ export default function AddDirectoryPage() {
                           type="button"
                           onClick={() => push("")}
                           disabled={
-                            getLimitNumber("factoryImages") !== null &&
-                            values.factoryGallery.length >= (getLimitNumber("factoryImages") ?? 0)
+                            !isUnlimited(profileLimits?.factoryImages) &&
+                            values.factoryGallery.length >= (getFeatureLimit(profileLimits?.factoryImages) ?? 0)
                           }
                           className="disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           + Add Factory Image
-                          {getLimitNumber("factoryImages") !== null &&
-                            ` (${values.factoryGallery.length}/${getLimitNumber("factoryImages")})`}
+                          {!isUnlimited(profileLimits?.factoryImages) &&
+                            ` (${values.factoryGallery.length}/${getDisplayLimit(profileLimits?.factoryImages)})`}
                         </button>
                       </>
                     )}
@@ -892,7 +907,7 @@ export default function AddDirectoryPage() {
               {/* COMPANY BROCHURE - GATED BY PACKAGE */}
               <Section title="Company Brochure">
                 <PlanGatedSection
-                  allowed={getLimitBoolean("brochures")}
+                  allowed={isFeatureAllowed(profileLimits?.brochures)}
                   upgradeMessage="Company Brochure is available on Basic plan and above."
                 >
                   <FieldArray name="companyBrochure">
@@ -916,7 +931,7 @@ export default function AddDirectoryPage() {
               {/* CERTIFICATIONS - GATED BY PACKAGE */}
               <Section title="Certifications">
                 <PlanGatedSection
-                  allowed={getLimitBoolean("certifications")}
+                  allowed={isFeatureAllowed(profileLimits?.certifications)}
                   upgradeMessage="Certifications are available on Basic plan and above."
                 >
                   <FieldArray name="certifications">
@@ -937,88 +952,111 @@ export default function AddDirectoryPage() {
                 </PlanGatedSection>
               </Section>
 
-              {/* BRANDS REPRESENTED - GATED BY PACKAGE */}
+              {/* ✅ BRANDS REPRESENTED - FIXED: Shows Unlimited for Professional/Enterprise */}
               <Section title="Brands Represented">
-                <PlanGatedSection
-                  allowed={hasLimit("brandsRepresented") && (getLimitNumber("brandsRepresented") ?? 0) > 0}
-                  upgradeMessage="Brands Represented is available on Basic plan and above."
-                >
-                  <p className="text-xs text-gray-400 mb-2">
-                    {getLimitNumber("brandsRepresented") !== null
-                      ? `Your plan allows up to ${getLimitNumber("brandsRepresented")} brands.`
-                      : "Unlimited brands on your plan."}
-                  </p>
-                  <FieldArray name="brandsRepresented">
-                    {({ push, remove }) => (
-                      <>
-                        {values.brandsRepresented.map((_: any, i: number) => (
-                          <div key={i} className="flex gap-2">
-                            <Field name={`brandsRepresented.${i}`} className="input flex-1" placeholder="Brand name" />
-                            {i > 0 && <button type="button" onClick={() => remove(i)}>✕</button>}
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => push("")}
-                          disabled={
-                            getLimitNumber("brandsRepresented") !== null &&
-                            values.brandsRepresented.length >= (getLimitNumber("brandsRepresented") ?? 0)
-                          }
-                          className="disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          + Add Brand
-                          {getLimitNumber("brandsRepresented") !== null &&
-                            ` (${values.brandsRepresented.length}/${getLimitNumber("brandsRepresented")})`}
-                        </button>
-                      </>
-                    )}
-                  </FieldArray>
-                </PlanGatedSection>
+                {(() => {
+                  const isUnlimitedBrands = isUnlimited(profileLimits?.brandsRepresented);
+                  const limit = getFeatureLimit(profileLimits?.brandsRepresented);
+
+                  // If not allowed at all (Free plan has 0)
+                  if (!isFeatureAllowed(profileLimits?.brandsRepresented)) {
+                    return (
+                      <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+                        Brands Represented are available on Basic plan and above.
+                        {isProfessionalOrEnterprise && " Your plan includes unlimited brands."}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <p className="text-xs text-gray-400 mb-2">
+                        {isUnlimitedBrands
+                          ? "✅ Unlimited brands on your Professional/Enterprise plan."
+                          : `Your plan allows up to ${limit} brands.`}
+                      </p>
+                      <FieldArray name="brandsRepresented">
+                        {({ push, remove }) => (
+                          <>
+                            {values.brandsRepresented.map((_: any, i: number) => (
+                              <div key={i} className="flex gap-2">
+                                <Field name={`brandsRepresented.${i}`} className="input flex-1" placeholder="Brand name" />
+                                {i > 0 && <button type="button" onClick={() => remove(i)}>✕</button>}
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => push("")}
+                              disabled={!isUnlimitedBrands && values.brandsRepresented.length >= (limit ?? 0)}
+                              className="disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              + Add Brand
+                              {!isUnlimitedBrands && limit !== null &&
+                                ` (${values.brandsRepresented.length}/${limit})`}
+                              {isUnlimitedBrands && " (Unlimited)"}
+                            </button>
+                          </>
+                        )}
+                      </FieldArray>
+                    </>
+                  );
+                })()}
               </Section>
 
-              {/* INDUSTRIES SERVED - GATED BY PACKAGE */}
+              {/* ✅ INDUSTRIES SERVED - FIXED: Shows Unlimited for Professional/Enterprise */}
               <Section title="Industries Served">
-                <PlanGatedSection
-                  allowed={hasLimit("industriesServed") && (getLimitNumber("industriesServed") ?? 0) > 0}
-                  upgradeMessage="Industries Served is available on Free plan (limited to 5) and above."
-                >
-                  <p className="text-xs text-gray-400 mb-2">
-                    {getLimitNumber("industriesServed") !== null
-                      ? `Your plan allows up to ${getLimitNumber("industriesServed")} industries.`
-                      : "Unlimited industries on your plan."}
-                  </p>
-                  <FieldArray name="industriesServed">
-                    {({ push, remove }) => (
-                      <>
-                        {values.industriesServed.map((_: any, i: number) => (
-                          <div key={i} className="flex gap-2">
-                            <Field name={`industriesServed.${i}`} className="input flex-1" placeholder="Industry name" />
-                            {i > 0 && <button type="button" onClick={() => remove(i)}>✕</button>}
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => push("")}
-                          disabled={
-                            getLimitNumber("industriesServed") !== null &&
-                            values.industriesServed.length >= (getLimitNumber("industriesServed") ?? 0)
-                          }
-                          className="disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          + Add Industry
-                          {getLimitNumber("industriesServed") !== null &&
-                            ` (${values.industriesServed.length}/${getLimitNumber("industriesServed")})`}
-                        </button>
-                      </>
-                    )}
-                  </FieldArray>
-                </PlanGatedSection>
+                {(() => {
+                  const isUnlimitedIndustries = isUnlimited(profileLimits?.industriesServed);
+                  const limit = getFeatureLimit(profileLimits?.industriesServed);
+
+                  // If not allowed at all (shouldn't happen since Free has 5)
+                  if (!isFeatureAllowed(profileLimits?.industriesServed)) {
+                    return (
+                      <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+                        Industries Served are available on Free plan (limited to 5) and above.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <p className="text-xs text-gray-400 mb-2">
+                        {isUnlimitedIndustries
+                          ? "✅ Unlimited industries on your Professional/Enterprise plan."
+                          : `Your plan allows up to ${limit} industries.`}
+                      </p>
+                      <FieldArray name="industriesServed">
+                        {({ push, remove }) => (
+                          <>
+                            {values.industriesServed.map((_: any, i: number) => (
+                              <div key={i} className="flex gap-2">
+                                <Field name={`industriesServed.${i}`} className="input flex-1" placeholder="Industry name" />
+                                {i > 0 && <button type="button" onClick={() => remove(i)}>✕</button>}
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => push("")}
+                              disabled={!isUnlimitedIndustries && values.industriesServed.length >= (limit ?? 0)}
+                              className="disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              + Add Industry
+                              {!isUnlimitedIndustries && limit !== null &&
+                                ` (${values.industriesServed.length}/${limit})`}
+                              {isUnlimitedIndustries && " (Unlimited)"}
+                            </button>
+                          </>
+                        )}
+                      </FieldArray>
+                    </>
+                  );
+                })()}
               </Section>
 
               {/* EXPORT MARKETS - GATED BY PACKAGE */}
               <Section title="Export Markets">
                 <PlanGatedSection
-                  allowed={getLimitBoolean("exportMarkets")}
+                  allowed={isFeatureAllowed(profileLimits?.exportMarkets)}
                   upgradeMessage="Export Markets are available on Basic plan and above."
                 >
                   <FieldArray name="exportMarkets">
@@ -1042,16 +1080,13 @@ export default function AddDirectoryPage() {
               {/* MANUFACTURING CAPABILITIES - GATED BY PACKAGE */}
               <Section title="Manufacturing Capabilities">
                 <PlanGatedSection
-                  allowed={!!profileLimits?.manufacturingCapabilities}
+                  allowed={isFeatureAllowed(profileLimits?.manufacturingCapabilities)}
                   upgradeMessage="Manufacturing Capabilities are available on Basic plan and above."
                 >
                   <p className="text-xs text-gray-400 mb-2">
-                    {profileLimits?.manufacturingCapabilities === "Basic" &&
-                      "Basic plan: Standard text description."}
-                    {profileLimits?.manufacturingCapabilities === "Complete" &&
-                      "Professional plan: Complete text description."}
-                    {profileLimits?.manufacturingCapabilities === "Complete + Photos + Video" &&
-                      "Enterprise plan: Complete text + Photos + Videos."}
+                    {typeof profileLimits?.manufacturingCapabilities === "string" && profileLimits.manufacturingCapabilities}
+                    {isEnterprise && " — Enterprise plan: Complete text + Photos + Videos."}
+                    {isProfessional && profileLimits?.manufacturingCapabilities === "Complete" && " — Professional plan: Complete text description."}
                   </p>
                   <Field
                     as="textarea"
@@ -1060,22 +1095,28 @@ export default function AddDirectoryPage() {
                     className="input"
                     placeholder="Describe your manufacturing capabilities..."
                   />
+                  {isEnterprise && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-700">
+                        <strong>Enterprise Feature:</strong> You can upload photos and videos
+                        to showcase your manufacturing capabilities. Use the rich text editor
+                        above to embed images and video links.
+                      </p>
+                    </div>
+                  )}
                 </PlanGatedSection>
               </Section>
 
               {/* MACHINERY LIST - GATED BY PACKAGE */}
               <Section title="Machinery List">
                 <PlanGatedSection
-                  allowed={!!profileLimits?.machineryList}
+                  allowed={isFeatureAllowed(profileLimits?.machineryList)}
                   upgradeMessage="Machinery List is available on Basic plan and above."
                 >
                   <p className="text-xs text-gray-400 mb-2">
-                    {profileLimits?.machineryList === "Basic" &&
-                      "Basic plan: Basic text list."}
-                    {profileLimits?.machineryList === "Detailed" &&
-                      "Professional plan: Detailed text list."}
-                    {profileLimits?.machineryList === "Detailed with Images" &&
-                      "Enterprise plan: Detailed text + Machinery Images."}
+                    {typeof profileLimits?.machineryList === "string" && profileLimits.machineryList}
+                    {isEnterprise && " — Enterprise plan: Detailed text + Machinery Images."}
+                    {isProfessional && profileLimits?.machineryList === "Detailed" && " — Professional plan: Detailed text list."}
                   </p>
                   <Field
                     as="textarea"
@@ -1084,13 +1125,22 @@ export default function AddDirectoryPage() {
                     className="input"
                     placeholder="List your machinery..."
                   />
+                  {isEnterprise && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-700">
+                        <strong>Enterprise Feature:</strong> You can upload machinery images
+                        alongside your text descriptions. Use the rich text editor to embed
+                        images of your machinery.
+                      </p>
+                    </div>
+                  )}
                 </PlanGatedSection>
               </Section>
 
               {/* QUALITY STANDARDS - GATED BY PACKAGE */}
               <Section title="Quality Standards">
                 <PlanGatedSection
-                  allowed={getLimitBoolean("qualityStandards")}
+                  allowed={isFeatureAllowed(profileLimits?.qualityStandards)}
                   upgradeMessage="Quality Standards are available on Basic plan and above."
                 >
                   <Field

@@ -216,16 +216,16 @@ export default function GalleryTabs({
 
   return (
     <div>
-      <div className="border-b border-gray-200 mb-8">
-        <div className="flex gap-8 overflow-x-auto">
+      <div className="mb-8">
+        <div className="inline-flex flex-wrap gap-1 p-1 bg-gray-100 rounded-xl">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition whitespace-nowrap px-1
+              className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-all
                 ${activeTab === tab.id
-                  ? "border-red-600 text-red-600"
-                  : "border-transparent text-gray-500 hover:text-black hover:border-gray-300"
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "text-gray-600 hover:text-black hover:bg-gray-200"
                 }
               `}
             >

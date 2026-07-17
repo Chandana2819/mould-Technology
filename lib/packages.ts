@@ -12,9 +12,9 @@ export type SubscriptionFeature = {
 
 export const SUBSCRIPTION_PLANS = [
   { id: "free" as const, name: "Free", price: 0 },
-  { id: "basic" as const, name: "Basic", price: 9999 },
-  { id: "professional" as const, name: "Professional", price: 24999 },
-  { id: "enterprise" as const, name: "Enterprise", price: 99999 },
+  { id: "basic" as const, name: "Basic", price: 1 },
+  { id: "professional" as const, name: "Professional", price: 1 },
+  { id: "enterprise" as const, name: "Enterprise", price: 1 },
 ] as const;
 
 export const SUBSCRIPTION_FEATURES: SubscriptionFeature[] = [

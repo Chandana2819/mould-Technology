@@ -45,6 +45,7 @@ export default function LoginForm() {
       if (user.role === "admin") {
         router.push("/admin/dashboard")
       } else if (user.role === "recruiter") {
+        // Recruiters still need package selection
         if (!user.packageSelected) {
           router.push("/packages")
         } else if (!user.isOnboarded) {
@@ -53,6 +54,7 @@ export default function LoginForm() {
           router.push("/recruiter/dashboard")
         }
       } else if (user.role === "candidate") {
+        // Candidates skip package selection, go directly to onboarding or feed
         if (!user.isOnboarded) {
           router.push("/candidate/onboarding")
         } else {

@@ -172,7 +172,10 @@ export default function EditDirectoryPage() {
           industriesServed: Array.isArray(data.industriesServed) ? data.industriesServed : [""],
           exportMarkets: Array.isArray(data.exportMarkets) ? data.exportMarkets : [""],
           manufacturingCapabilities: data.manufacturingCapabilities || "",
+          manufacturingCapabilityImages: Array.isArray(data.manufacturingCapabilityImages) ? data.manufacturingCapabilityImages : [],
+          manufacturingCapabilityVideos: Array.isArray(data.manufacturingCapabilityVideos) ? data.manufacturingCapabilityVideos : [],
           machineryList: data.machineryList || "",
+          machineryImages: Array.isArray(data.machineryImages) ? data.machineryImages : [],
           qualityStandards: data.qualityStandards || "",
           enableInquiryForm: data.enableInquiryForm ?? true,
           isLiveEditable: data.isLiveEditable ?? false,
@@ -245,6 +248,29 @@ export default function EditDirectoryPage() {
     } finally {
       setUploadingCatalogue(false);
     }
+  };
+
+  // ✅ NEW: Handle manufacturing image upload
+  const handleManufacturingImageUpload = async (index: number, file: File) => {
+    const url = await uploadFile(file);
+    const arr = [...(directory.manufacturingCapabilityImages || [])];
+    arr[index] = url;
+    setDirectory({ ...directory, manufacturingCapabilityImages: arr });
+  };
+
+  // ✅ NEW: Handle manufacturing video URL update
+  const handleManufacturingVideoUpdate = (index: number, value: string) => {
+    const arr = [...(directory.manufacturingCapabilityVideos || [])];
+    arr[index] = value;
+    setDirectory({ ...directory, manufacturingCapabilityVideos: arr });
+  };
+
+  // ✅ NEW: Handle machinery image upload
+  const handleMachineryImageUpload = async (index: number, file: File) => {
+    const url = await uploadFile(file);
+    const arr = [...(directory.machineryImages || [])];
+    arr[index] = url;
+    setDirectory({ ...directory, machineryImages: arr });
   };
 
   async function saveChanges() {
@@ -321,7 +347,10 @@ export default function EditDirectoryPage() {
         industriesServed: cleanArray(directory.industriesServed),
         exportMarkets: cleanArray(directory.exportMarkets),
         manufacturingCapabilities: directory.manufacturingCapabilities || null,
+        manufacturingCapabilityImages: cleanArray(directory.manufacturingCapabilityImages || []),
+        manufacturingCapabilityVideos: cleanArray(directory.manufacturingCapabilityVideos || []),
         machineryList: directory.machineryList || null,
+        machineryImages: cleanArray(directory.machineryImages || []),
         qualityStandards: directory.qualityStandards || null,
         enableInquiryForm: directory.enableInquiryForm ?? true,
         location,
@@ -562,8 +591,8 @@ export default function EditDirectoryPage() {
                 setDirectory({ ...directory, description: raw });
               }}
               className={`w-full rounded-md border p-2 text-sm focus:outline-none focus:ring-1 ${atLimit
-                  ? "border-red-400 focus:border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                ? "border-red-400 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                 }`}
               placeholder="Enter your description..."
             />
@@ -941,13 +970,12 @@ export default function EditDirectoryPage() {
         </PlanGatedSection>
       </Section>
 
-      {/* ✅ BRANDS REPRESENTED - FIXED: Shows Unlimited for Professional/Enterprise */}
+      {/* BRANDS REPRESENTED */}
       <Section title="Brands Represented">
         {(() => {
           const isUnlimitedBrands = isUnlimited(profileLimits?.brandsRepresented);
           const limit = getFeatureLimit(profileLimits?.brandsRepresented);
 
-          // If not allowed at all (Free plan has 0)
           if (!isFeatureAllowed(profileLimits?.brandsRepresented)) {
             return (
               <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
@@ -995,13 +1023,12 @@ export default function EditDirectoryPage() {
         })()}
       </Section>
 
-      {/* ✅ INDUSTRIES SERVED - FIXED: Shows Unlimited for Professional/Enterprise */}
+      {/* INDUSTRIES SERVED */}
       <Section title="Industries Served">
         {(() => {
           const isUnlimitedIndustries = isUnlimited(profileLimits?.industriesServed);
           const limit = getFeatureLimit(profileLimits?.industriesServed);
 
-          // If not allowed at all (shouldn't happen since Free has 5)
           if (!isFeatureAllowed(profileLimits?.industriesServed)) {
             return (
               <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
@@ -1075,7 +1102,9 @@ export default function EditDirectoryPage() {
         </PlanGatedSection>
       </Section>
 
-      {/* MANUFACTURING CAPABILITIES - GATED BY PACKAGE */}
+      {/* ============================================================================
+          MANUFACTURING CAPABILITIES - WITH ENTERPRISE MEDIA SUPPORT
+          ============================================================================ */}
       <Section title="Manufacturing Capabilities">
         <PlanGatedSection
           allowed={isFeatureAllowed(profileLimits?.manufacturingCapabilities)}
@@ -1085,26 +1114,126 @@ export default function EditDirectoryPage() {
             {typeof profileLimits?.manufacturingCapabilities === "string" && profileLimits.manufacturingCapabilities}
             {isEnterprise && " — Enterprise plan: Complete text + Photos + Videos."}
             {isProfessional && profileLimits?.manufacturingCapabilities === "Complete" && " — Professional plan: Complete text description."}
+            {!isProfessional && !isEnterprise && profileLimits?.manufacturingCapabilities === "Basic" && " — Basic plan: Basic text description."}
           </p>
-          <RichTextEditor
-            value={directory.manufacturingCapabilities}
-            onChange={(val: string) =>
-              setDirectory({ ...directory, manufacturingCapabilities: val })
-            }
-          />
+
+          {/* Rich Text Editor - Available for Professional and Enterprise */}
+          {(isProfessional || isEnterprise) ? (
+            <RichTextEditor
+              value={directory.manufacturingCapabilities || ""}
+              onChange={(val: string) =>
+                setDirectory({ ...directory, manufacturingCapabilities: val })
+              }
+            />
+          ) : (
+            <textarea
+              rows={5}
+              className="input w-full"
+              value={directory.manufacturingCapabilities || ""}
+              onChange={(e) => setDirectory({ ...directory, manufacturingCapabilities: e.target.value })}
+              placeholder="Describe your manufacturing capabilities..."
+            />
+          )}
+
+          {/* ✅ Manufacturing Photos - Enterprise only */}
+          {isEnterprise && (
+            <div className="mt-4">
+              <label className="font-medium text-sm block mb-1">Manufacturing Photos</label>
+              <p className="text-xs text-gray-400 mb-2">
+                Upload photos of your manufacturing capabilities (Unlimited on Enterprise)
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {directory.manufacturingCapabilityImages?.map((url: string, i: number) => (
+                  <div key={i} className="relative space-y-1">
+                    <UploadBox
+                      label={`Photo ${i + 1}`}
+                      value={url}
+                      onUpload={(file) => handleManufacturingImageUpload(i, file)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const arr = [...(directory.manufacturingCapabilityImages || [])];
+                        arr.splice(i, 1);
+                        setDirectory({ ...directory, manufacturingCapabilityImages: arr });
+                      }}
+                      className="text-red-500 text-sm hover:text-red-700"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                ))}
+                <div className="col-span-full">
+                  <button
+                    type="button"
+                    onClick={() => setDirectory({
+                      ...directory,
+                      manufacturingCapabilityImages: [...(directory.manufacturingCapabilityImages || []), ""]
+                    })}
+                    className="border px-4 py-2 rounded bg-gray-50 hover:bg-gray-100 text-sm font-medium"
+                  >
+                    + Add Photo
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ Manufacturing Videos - Enterprise only */}
+          {isEnterprise && (
+            <div className="mt-4">
+              <label className="font-medium text-sm block mb-1">Manufacturing Videos</label>
+              <p className="text-xs text-gray-400 mb-2">
+                Add YouTube or Vimeo video URLs (Unlimited on Enterprise)
+              </p>
+              {directory.manufacturingCapabilityVideos?.map((url: string, i: number) => (
+                <div key={i} className="flex gap-2 mb-2">
+                  <input
+                    className="input flex-1"
+                    value={url}
+                    onChange={(e) => handleManufacturingVideoUpdate(i, e.target.value)}
+                    placeholder="YouTube or Vimeo URL"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const arr = [...(directory.manufacturingCapabilityVideos || [])];
+                      arr.splice(i, 1);
+                      setDirectory({ ...directory, manufacturingCapabilityVideos: arr });
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setDirectory({
+                  ...directory,
+                  manufacturingCapabilityVideos: [...(directory.manufacturingCapabilityVideos || []), ""]
+                })}
+                className="border px-4 py-2 rounded bg-gray-50 hover:bg-gray-100 text-sm font-medium"
+              >
+                + Add Video
+              </button>
+            </div>
+          )}
+
           {isEnterprise && (
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-700">
-                <strong>Enterprise Feature:</strong> You can upload photos and videos
-                to showcase your manufacturing capabilities. Use the rich text editor
-                above to embed images and video links.
+                <strong>Enterprise Feature:</strong> You can upload unlimited photos and videos
+                to showcase your manufacturing capabilities.
               </p>
             </div>
           )}
         </PlanGatedSection>
       </Section>
 
-      {/* MACHINERY LIST - GATED BY PACKAGE */}
+      {/* ============================================================================
+          MACHINERY LIST - WITH ENTERPRISE MEDIA SUPPORT
+          ============================================================================ */}
       <Section title="Machinery List">
         <PlanGatedSection
           allowed={isFeatureAllowed(profileLimits?.machineryList)}
@@ -1114,17 +1243,74 @@ export default function EditDirectoryPage() {
             {typeof profileLimits?.machineryList === "string" && profileLimits.machineryList}
             {isEnterprise && " — Enterprise plan: Detailed text + Machinery Images."}
             {isProfessional && profileLimits?.machineryList === "Detailed" && " — Professional plan: Detailed text list."}
+            {!isProfessional && !isEnterprise && profileLimits?.machineryList === "Basic" && " — Basic plan: Basic text list."}
           </p>
-          <RichTextEditor
-            value={directory.machineryList}
-            onChange={(val: string) => setDirectory({ ...directory, machineryList: val })}
-          />
+
+          {/* Rich Text Editor - Available for Professional and Enterprise */}
+          {(isProfessional || isEnterprise) ? (
+            <RichTextEditor
+              value={directory.machineryList || ""}
+              onChange={(val: string) => setDirectory({ ...directory, machineryList: val })}
+            />
+          ) : (
+            <textarea
+              rows={5}
+              className="input w-full"
+              value={directory.machineryList || ""}
+              onChange={(e) => setDirectory({ ...directory, machineryList: e.target.value })}
+              placeholder="List your machinery..."
+            />
+          )}
+
+          {/* ✅ Machinery Images - Enterprise only */}
+          {isEnterprise && (
+            <div className="mt-4">
+              <label className="font-medium text-sm block mb-1">Machinery Images</label>
+              <p className="text-xs text-gray-400 mb-2">
+                Upload images of your machinery (Unlimited on Enterprise)
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {directory.machineryImages?.map((url: string, i: number) => (
+                  <div key={i} className="relative space-y-1">
+                    <UploadBox
+                      label={`Machine Image ${i + 1}`}
+                      value={url}
+                      onUpload={(file) => handleMachineryImageUpload(i, file)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const arr = [...(directory.machineryImages || [])];
+                        arr.splice(i, 1);
+                        setDirectory({ ...directory, machineryImages: arr });
+                      }}
+                      className="text-red-500 text-sm hover:text-red-700"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                ))}
+                <div className="col-span-full">
+                  <button
+                    type="button"
+                    onClick={() => setDirectory({
+                      ...directory,
+                      machineryImages: [...(directory.machineryImages || []), ""]
+                    })}
+                    className="border px-4 py-2 rounded bg-gray-50 hover:bg-gray-100 text-sm font-medium"
+                  >
+                    + Add Machine Image
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {isEnterprise && (
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-700">
-                <strong>Enterprise Feature:</strong> You can upload machinery images
-                alongside your text descriptions. Use the rich text editor to embed
-                images of your machinery.
+                <strong>Enterprise Feature:</strong> You can upload unlimited machinery images
+                alongside your text descriptions.
               </p>
             </div>
           )}

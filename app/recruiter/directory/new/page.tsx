@@ -38,7 +38,7 @@ const DirectorySchema = Yup.object({
   coverImages: Yup.array().of(Yup.string().url()),
   tradeNames: Yup.array().of(Yup.string()).min(1),
   videoGallery: Yup.array().of(Yup.string().url()),
-  productSupplies: Yup.array().of(Yup.string().min(2)),
+  productSupplies: Yup.array(),
   productGallery: Yup.array().of(Yup.string().url()),
   companyGallery: Yup.array().of(Yup.string().url()),
   factoryGallery: Yup.array().of(Yup.string().url()),
@@ -49,7 +49,10 @@ const DirectorySchema = Yup.object({
   industriesServed: Yup.array().of(Yup.string()),
   exportMarkets: Yup.array().of(Yup.string()),
   manufacturingCapabilities: Yup.string(),
+  manufacturingCapabilityImages: Yup.array().of(Yup.string().url()),
+  manufacturingCapabilityVideos: Yup.array().of(Yup.string().url()),
   machineryList: Yup.string(),
+  machineryImages: Yup.array().of(Yup.string().url()),
   qualityStandards: Yup.string(),
   enableInquiryForm: Yup.boolean(),
   googleMapUrl: Yup.string().url().nullable(),
@@ -105,18 +108,18 @@ export default function AddDirectoryPage() {
   const [industrySelected, setIndustrySelected] = useState<number[]>([]);
   const [geo, setGeo] = useState<Awaited<ReturnType<typeof loadGeo>> | null>(null);
 
-  // ✅ Helper: Check if a value is unlimited
+  // Helper: Check if a value is unlimited
   const isUnlimited = (value: any): boolean => {
     return value === null || value === "Unlimited" || value === Infinity;
   };
 
-  // ✅ Helper: Get display limit
+  // Helper: Get display limit
   const getDisplayLimit = (value: any): string | number => {
     if (isUnlimited(value)) return "Unlimited";
     return value;
   };
 
-  // ✅ Helper: Check if feature is allowed (null = unlimited = allowed)
+  // Helper: Check if feature is allowed (null = unlimited = allowed)
   const isFeatureAllowed = (value: any): boolean => {
     if (value === null || value === "Unlimited") return true;
     if (typeof value === "boolean") return value;
@@ -127,7 +130,7 @@ export default function AddDirectoryPage() {
     return !!value;
   };
 
-  // ✅ Helper: Get numeric limit (null = unlimited)
+  // Helper: Get numeric limit (null = unlimited)
   const getFeatureLimit = (value: any): number | null => {
     if (value === null || value === "Unlimited") return null;
     if (typeof value === "number") return value;
@@ -153,10 +156,14 @@ export default function AddDirectoryPage() {
 
   useEffect(() => {
     async function fetchIndustries() {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/industries`);
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : data.data ?? [];
-      setIndustryLevels([list]);
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/industries`);
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.data ?? [];
+        setIndustryLevels([list]);
+      } catch (err) {
+        console.error("Failed to fetch industries:", err);
+      }
     }
     fetchIndustries();
   }, []);
@@ -169,15 +176,20 @@ export default function AddDirectoryPage() {
     setIndustryLevels(newLevels);
     setFieldValue("industryId", "");
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/industries/${id}/children`
-    );
-    const children = await res.json();
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/industries/${id}/children`
+      );
+      const children = await res.json();
 
-    if (children.length > 0) {
-      setIndustryLevels([...newLevels, children]);
-    } else {
-      setFieldValue("industryId", id);
+      if (Array.isArray(children) && children.length > 0) {
+        setIndustryLevels([...newLevels, children]);
+      } else {
+        // Leaf node reached — this is the ONLY place industryId gets set to a real value
+        setFieldValue("industryId", id);
+      }
+    } catch (err) {
+      console.error("Failed to fetch industry children:", err);
     }
   };
 
@@ -261,9 +273,20 @@ export default function AddDirectoryPage() {
   };
 
   async function submit(values: any, { setSubmitting, setStatus }: any) {
+    console.log("=== SUBMIT CALLED ===", values);
+
     try {
       const token = localStorage.getItem("token");
+
+      if (!token) {
+        console.warn("No auth token found in localStorage — request will likely fail with 401");
+      }
+
       const geoLib = geo ?? (await loadGeo());
+
+      if (!geoLib || !geoLib.Country || !geoLib.State) {
+        throw new Error("Location data failed to load. Please refresh the page and try again.");
+      }
 
       const selectedCountry = geoLib.Country.getAllCountries().find(
         (c) => c.isoCode === values.country
@@ -295,7 +318,13 @@ export default function AddDirectoryPage() {
         brandsRepresented: cleanArray(values.brandsRepresented),
         industriesServed: cleanArray(values.industriesServed),
         exportMarkets: cleanArray(values.exportMarkets),
+        manufacturingCapabilityImages: cleanArray(values.manufacturingCapabilityImages || []),
+        manufacturingCapabilityVideos: cleanArray(values.manufacturingCapabilityVideos || []),
+        machineryImages: cleanArray(values.machineryImages || []),
       };
+
+      console.log("=== PAYLOAD BEING SENT ===", payload);
+      console.log("=== API URL ===", `${process.env.NEXT_PUBLIC_API_URL}/api/suppliers`);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/suppliers`, {
         method: "POST",
@@ -306,16 +335,22 @@ export default function AddDirectoryPage() {
         body: JSON.stringify(payload),
       });
 
+      console.log("=== RESPONSE STATUS ===", res.status);
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        console.log("=== ERROR RESPONSE BODY ===", data);
         if (data.code === "PRODUCT_LISTING_LIMIT_REACHED") {
           setShowLimitModal(true);
           return;
         }
-        throw new Error(data.error || "Failed to submit directory");
+        throw new Error(data.error || `Failed to submit directory (status ${res.status})`);
       }
+
+      console.log("=== SUBMIT SUCCESS — redirecting ===");
       router.push("/recruiter/dashboard");
     } catch (err: any) {
+      console.error("=== SUBMIT CAUGHT ERROR ===", err);
       setStatus(err.message || "Failed to submit directory");
     } finally {
       setSubmitting(false);
@@ -375,7 +410,10 @@ export default function AddDirectoryPage() {
           industriesServed: [""],
           exportMarkets: [""],
           manufacturingCapabilities: "",
+          manufacturingCapabilityImages: [],
+          manufacturingCapabilityVideos: [],
           machineryList: "",
+          machineryImages: [""],
           qualityStandards: "",
           googleMapUrl: "",
           enableInquiryForm: true,
@@ -394,14 +432,33 @@ export default function AddDirectoryPage() {
           acceptedGuidelines: false,
         }}
         validationSchema={DirectorySchema}
+        validateOnMount={false}
         onSubmit={submit}
       >
-        {({ isSubmitting, setFieldValue, values, status }) => {
+        {({ isSubmitting, setFieldValue, values, status, errors, submitCount }) => {
           const states = values.country ? geo.State.getStatesOfCountry(values.country) : [];
           const cities = values.state ? geo.City.getCitiesOfState(values.country, values.state) : [];
 
+          if (submitCount > 0 && Object.keys(errors).length > 0) {
+            console.log("=== VALIDATION ERRORS BLOCKING SUBMIT ===", errors);
+          }
+
           return (
             <Form className="space-y-6 bg-white p-6 rounded-xl shadow">
+              {/* DEBUG PANEL - remove once issue is found */}
+              {submitCount > 0 && Object.keys(errors).length > 0 && (
+                <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+                  <strong>Form has validation errors blocking submission:</strong>
+                  <ul className="list-disc list-inside mt-1">
+                    {Object.entries(errors).map(([field, msg]) => (
+                      <li key={field}>
+                        {field}: {typeof msg === "string" ? msg : JSON.stringify(msg)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* NAME + SLUG */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -509,6 +566,11 @@ export default function AddDirectoryPage() {
                       ))}
                     </select>
                   ))}
+                  {values.industryId === "" && (
+                    <p className="text-xs text-amber-600">
+                      Keep selecting until no further sub-category appears.
+                    </p>
+                  )}
                   <ErrorMessage name="industryId" component="p" className="error" />
                 </div>
                 <FieldBlock label="Website" name="website" />
@@ -543,8 +605,8 @@ export default function AddDirectoryPage() {
                         setFieldValue("description", raw);
                       }}
                       className={`w-full rounded-md border p-2 text-sm focus:outline-none focus:ring-1 ${atLimit
-                          ? "border-red-400 focus:border-red-500 focus:ring-red-500"
-                          : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                        ? "border-red-400 focus:border-red-500 focus:ring-red-500"
+                        : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                         }`}
                       placeholder="Enter your description..."
                     />
@@ -939,7 +1001,7 @@ export default function AddDirectoryPage() {
                       <>
                         {values.certifications.map((_: any, i: number) => (
                           <div key={i} className="flex gap-2">
-                            <Field name={`certifications.${i}`} className="input flex-1" placeholder="Certification name" />
+                            <Field name={`certifications.${i}`} className="input flex-1" placeholder="Certification URL" />
                             {i > 0 && <button type="button" onClick={() => remove(i)}>✕</button>}
                           </div>
                         ))}
@@ -952,13 +1014,12 @@ export default function AddDirectoryPage() {
                 </PlanGatedSection>
               </Section>
 
-              {/* ✅ BRANDS REPRESENTED - FIXED: Shows Unlimited for Professional/Enterprise */}
+              {/* BRANDS REPRESENTED */}
               <Section title="Brands Represented">
                 {(() => {
                   const isUnlimitedBrands = isUnlimited(profileLimits?.brandsRepresented);
                   const limit = getFeatureLimit(profileLimits?.brandsRepresented);
 
-                  // If not allowed at all (Free plan has 0)
                   if (!isFeatureAllowed(profileLimits?.brandsRepresented)) {
                     return (
                       <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
@@ -1003,13 +1064,12 @@ export default function AddDirectoryPage() {
                 })()}
               </Section>
 
-              {/* ✅ INDUSTRIES SERVED - FIXED: Shows Unlimited for Professional/Enterprise */}
+              {/* INDUSTRIES SERVED */}
               <Section title="Industries Served">
                 {(() => {
                   const isUnlimitedIndustries = isUnlimited(profileLimits?.industriesServed);
                   const limit = getFeatureLimit(profileLimits?.industriesServed);
 
-                  // If not allowed at all (shouldn't happen since Free has 5)
                   if (!isFeatureAllowed(profileLimits?.industriesServed)) {
                     return (
                       <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
@@ -1077,7 +1137,9 @@ export default function AddDirectoryPage() {
                 </PlanGatedSection>
               </Section>
 
-              {/* MANUFACTURING CAPABILITIES - GATED BY PACKAGE */}
+              {/* ============================================================================
+                  MANUFACTURING CAPABILITIES - WITH ENTERPRISE MEDIA SUPPORT
+                  ============================================================================ */}
               <Section title="Manufacturing Capabilities">
                 <PlanGatedSection
                   allowed={isFeatureAllowed(profileLimits?.manufacturingCapabilities)}
@@ -1087,27 +1149,129 @@ export default function AddDirectoryPage() {
                     {typeof profileLimits?.manufacturingCapabilities === "string" && profileLimits.manufacturingCapabilities}
                     {isEnterprise && " — Enterprise plan: Complete text + Photos + Videos."}
                     {isProfessional && profileLimits?.manufacturingCapabilities === "Complete" && " — Professional plan: Complete text description."}
+                    {!isProfessional && !isEnterprise && profileLimits?.manufacturingCapabilities === "Basic" && " — Basic plan: Basic text description."}
                   </p>
-                  <Field
-                    as="textarea"
-                    rows={5}
-                    name="manufacturingCapabilities"
-                    className="input"
-                    placeholder="Describe your manufacturing capabilities..."
-                  />
+
+                  {/* Rich Text Editor - Available for Professional and Enterprise */}
+                  {(isProfessional || isEnterprise) ? (
+                    <RichTextEditor
+                      value={values.manufacturingCapabilities || ""}
+                      onChange={(val: string) => setFieldValue('manufacturingCapabilities', val)}
+                    />
+                  ) : (
+                    <Field
+                      as="textarea"
+                      rows={5}
+                      name="manufacturingCapabilities"
+                      className="input"
+                      placeholder="Describe your manufacturing capabilities..."
+                    />
+                  )}
+
+                  {/* ✅ Manufacturing Photos - Enterprise only */}
+                  {isEnterprise && (
+                    <div className="mt-4">
+                      <label className="font-medium text-sm block mb-1">Manufacturing Photos</label>
+                      <p className="text-xs text-gray-400 mb-2">
+                        Upload photos of your manufacturing capabilities (Unlimited on Enterprise)
+                      </p>
+                      <FieldArray name="manufacturingCapabilityImages">
+                        {({ push, remove }) => (
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {values.manufacturingCapabilityImages.map((url: string, i: number) => (
+                              <div key={i} className="relative space-y-1">
+                                <input
+                                  className="input w-full"
+                                  value={url}
+                                  onChange={(e) => {
+                                    const arr = [...values.manufacturingCapabilityImages] as string[];
+                                    arr[i] = e.target.value;
+                                    setFieldValue('manufacturingCapabilityImages', arr);
+                                  }}
+                                  placeholder="Image URL"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => remove(i)}
+                                  className="text-red-500 text-sm hover:text-red-700"
+                                >
+                                  ✕ Remove
+                                </button>
+                              </div>
+                            ))}
+                            <div className="col-span-full">
+                              <button
+                                type="button"
+                                onClick={() => push("")}
+                                className="border px-4 py-2 rounded bg-gray-50 hover:bg-gray-100 text-sm font-medium"
+                              >
+                                + Add Photo
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </FieldArray>
+                    </div>
+                  )}
+
+                  {/* ✅ Manufacturing Videos - Enterprise only */}
+                  {isEnterprise && (
+                    <div className="mt-4">
+                      <label className="font-medium text-sm block mb-1">Manufacturing Videos</label>
+                      <p className="text-xs text-gray-400 mb-2">
+                        Add YouTube or Vimeo video URLs (Unlimited on Enterprise)
+                      </p>
+                      <FieldArray name="manufacturingCapabilityVideos">
+                        {({ push, remove }) => (
+                          <>
+                            {values.manufacturingCapabilityVideos.map((url: string, i: number) => (
+                              <div key={i} className="flex gap-2 mb-2">
+                                <input
+                                  className="input flex-1"
+                                  value={url}
+                                  onChange={(e) => {
+                                    const arr = [...values.manufacturingCapabilityVideos] as string[];
+                                    arr[i] = e.target.value;
+                                    setFieldValue('manufacturingCapabilityVideos', arr);
+                                  }}
+                                  placeholder="YouTube or Vimeo URL"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => remove(i)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => push("")}
+                              className="border px-4 py-2 rounded bg-gray-50 hover:bg-gray-100 text-sm font-medium"
+                            >
+                              + Add Video
+                            </button>
+                          </>
+                        )}
+                      </FieldArray>
+                    </div>
+                  )}
+
                   {isEnterprise && (
                     <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-700">
-                        <strong>Enterprise Feature:</strong> You can upload photos and videos
-                        to showcase your manufacturing capabilities. Use the rich text editor
-                        above to embed images and video links.
+                        <strong>Enterprise Feature:</strong> You can upload unlimited photos and videos
+                        to showcase your manufacturing capabilities.
                       </p>
                     </div>
                   )}
                 </PlanGatedSection>
               </Section>
 
-              {/* MACHINERY LIST - GATED BY PACKAGE */}
+              {/* ============================================================================
+                  MACHINERY LIST - WITH ENTERPRISE MEDIA SUPPORT
+                  ============================================================================ */}
               <Section title="Machinery List">
                 <PlanGatedSection
                   allowed={isFeatureAllowed(profileLimits?.machineryList)}
@@ -1117,20 +1281,76 @@ export default function AddDirectoryPage() {
                     {typeof profileLimits?.machineryList === "string" && profileLimits.machineryList}
                     {isEnterprise && " — Enterprise plan: Detailed text + Machinery Images."}
                     {isProfessional && profileLimits?.machineryList === "Detailed" && " — Professional plan: Detailed text list."}
+                    {!isProfessional && !isEnterprise && profileLimits?.machineryList === "Basic" && " — Basic plan: Basic text list."}
                   </p>
-                  <Field
-                    as="textarea"
-                    rows={5}
-                    name="machineryList"
-                    className="input"
-                    placeholder="List your machinery..."
-                  />
+
+                  {/* Rich Text Editor - Available for Professional and Enterprise */}
+                  {(isProfessional || isEnterprise) ? (
+                    <RichTextEditor
+                      value={values.machineryList || ""}
+                      onChange={(val: string) => setFieldValue('machineryList', val)}
+                    />
+                  ) : (
+                    <Field
+                      as="textarea"
+                      rows={5}
+                      name="machineryList"
+                      className="input"
+                      placeholder="List your machinery..."
+                    />
+                  )}
+
+                  {/* ✅ Machinery Images - Enterprise only */}
+                  {isEnterprise && (
+                    <div className="mt-4">
+                      <label className="font-medium text-sm block mb-1">Machinery Images</label>
+                      <p className="text-xs text-gray-400 mb-2">
+                        Upload images of your machinery (Unlimited on Enterprise)
+                      </p>
+                      <FieldArray name="machineryImages">
+                        {({ push, remove }) => (
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {values.machineryImages.map((url: string, i: number) => (
+                              <div key={i} className="relative space-y-1">
+                                <input
+                                  className="input w-full"
+                                  value={url}
+                                  onChange={(e) => {
+                                    const arr = [...values.machineryImages];
+                                    arr[i] = e.target.value;
+                                    setFieldValue('machineryImages', arr);
+                                  }}
+                                  placeholder="Image URL"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => remove(i)}
+                                  className="text-red-500 text-sm hover:text-red-700"
+                                >
+                                  ✕ Remove
+                                </button>
+                              </div>
+                            ))}
+                            <div className="col-span-full">
+                              <button
+                                type="button"
+                                onClick={() => push("")}
+                                className="border px-4 py-2 rounded bg-gray-50 hover:bg-gray-100 text-sm font-medium"
+                              >
+                                + Add Machine Image
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </FieldArray>
+                    </div>
+                  )}
+
                   {isEnterprise && (
                     <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-700">
-                        <strong>Enterprise Feature:</strong> You can upload machinery images
-                        alongside your text descriptions. Use the rich text editor to embed
-                        images of your machinery.
+                        <strong>Enterprise Feature:</strong> You can upload unlimited machinery images
+                        alongside your text descriptions.
                       </p>
                     </div>
                   )}
@@ -1178,12 +1398,12 @@ export default function AddDirectoryPage() {
                 <div className="flex justify-start">
                   <button
                     type="submit"
+                    onClick={() => console.log("=== SUBMIT BUTTON CLICKED ===")}
                     disabled={
                       isSubmitting ||
                       uploadingLogo ||
                       uploadingCover ||
-                      uploadingCatalogue ||
-                      !values.acceptedGuidelines
+                      uploadingCatalogue
                     }
                     className="w-full max-w-[220px] rounded-xl bg-black px-8 py-3 text-base font-semibold text-white transition hover:bg-[#111827] disabled:cursor-not-allowed disabled:bg-black/50"
                   >

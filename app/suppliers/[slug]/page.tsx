@@ -139,7 +139,6 @@ export default async function SupplierShowroomPage({
   const isPaid =
     KNOWN_TIERS.includes(normalizedPlanTier) && normalizedPlanTier !== "free"
 
-  // ✅ Only show quote button for paid plans (Basic, Professional, Enterprise)
   const showQuoteButton = isPaid && supplier.enableInquiryForm !== false
 
   const currentUser = await getCurrentUser()
@@ -153,63 +152,80 @@ export default async function SupplierShowroomPage({
 
   const location = supplier.Company?.location || ""
 
-  // ✅ Function to extract coordinates from Google Maps URL
-  function extractCoordinates(url: string | null | undefined): { lat: string; lng: string } | null {
-    if (!url) return null
+  function getMapEmbedUrl(googleMapUrl?: string | null, location?: string): string | null {
+    if (googleMapUrl) {
+      const coordMatch = googleMapUrl.match(/@([-0-9.]+),([-0-9.]+)/)
+      if (coordMatch) {
+        const lat = coordMatch[1]
+        const lng = coordMatch[2]
+        return `https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`
+      }
 
-    // Try to extract coordinates from Google Maps URL
-    const coordMatch = url.match(/@([-0-9.]+),([-0-9.]+)/)
-    if (coordMatch) {
-      return { lat: coordMatch[1], lng: coordMatch[2] }
+      const queryMatch = googleMapUrl.match(/[?&]q=([^&]+)/)
+      if (queryMatch) {
+        const query = decodeURIComponent(queryMatch[1])
+        return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=15&output=embed`
+      }
+
+      const placeMatch = googleMapUrl.match(/\/place\/([^/]+)/)
+      if (placeMatch) {
+        const place = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '))
+        return `https://maps.google.com/maps?q=${encodeURIComponent(place)}&z=15&output=embed`
+      }
+
+      if (googleMapUrl.includes('google.com/maps')) {
+        if (googleMapUrl.includes('output=embed')) {
+          return googleMapUrl
+        }
+        if (googleMapUrl.includes('?q=')) {
+          const match = googleMapUrl.match(/[?&]q=([^&]+)/)
+          if (match) {
+            const query = decodeURIComponent(match[1])
+            return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=15&output=embed`
+          }
+        }
+      }
     }
 
-    return null
-  }
-
-  // ✅ Function to get map URL using multiple methods
-  function getMapEmbedUrl(location: string, googleMapUrl?: string | null): string | null {
-    if (!location && !googleMapUrl) return null
-
-    // Method 1: Try to extract coordinates from Google Maps URL
-    const coords = extractCoordinates(googleMapUrl)
-    if (coords) {
-      const lat = parseFloat(coords.lat)
-      const lng = parseFloat(coords.lng)
-      // Show map centered on the coordinates with proper zoom
-      return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.02}%2C${lat - 0.02}%2C${lng + 0.02}%2C${lat + 0.02}&layer=mapnik&marker=${lat}%2C${lng}`
-    }
-
-    // Method 2: Use location name with OpenStreetMap
     if (location) {
-      const encodedLocation = encodeURIComponent(location)
-      // Use OpenStreetMap with location search - this will center on the location
-      return `https://www.openstreetmap.org/export/embed.html?q=${encodedLocation}&layer=mapnik&marker=1`
+      return `https://maps.google.com/maps?q=${encodeURIComponent(location)}&z=15&output=embed`
     }
 
     return null
   }
 
-  const mapEmbedUrl = getMapEmbedUrl(location, supplier.googleMapUrl)
+  const mapEmbedUrl = getMapEmbedUrl(supplier.googleMapUrl, location)
   const hasValidMap = mapEmbedUrl !== null
+
+  const bannerLimit = normalizedPlanTier === "basic"
+    ? 1
+    : normalizedPlanTier === "professional"
+      ? 3
+      : normalizedPlanTier === "enterprise"
+        ? 5
+        : 0;
+
+  const bannerImages = (
+    Array.isArray(supplier.coverImageUrl)
+      ? supplier.coverImageUrl
+      : supplier.coverImageUrl
+        ? [supplier.coverImageUrl]
+        : []
+  );
+
+  const limitedBannerImages = bannerImages.slice(0, bannerLimit);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="relative bg-black h-[140px] sm:h-[170px] md:h-[200px]" />
 
-      {isPaid && (
+      {isPaid && limitedBannerImages.length > 0 && (
         <div className="relative z-20 max-w-6xl mx-auto px-4 sm:px-6 -mt-6 sm:-mt-10 md:-mt-14">
           <SupplierPromotionBanner
             planTier={normalizedPlanTier}
             name={supplier.name}
             location={supplier.Company?.location}
             logoUrl={supplier.logoUrl}
-            coverImageUrl={
-              Array.isArray(supplier.coverImageUrl)
-                ? supplier.coverImageUrl
-                : supplier.coverImageUrl
-                  ? [supplier.coverImageUrl]
-                  : []
-            }
             tagline={supplier.Company?.tagline}
             tradeNames={supplier.tradeNames}
             phoneNumber={supplier.phoneNumber}
@@ -217,7 +233,8 @@ export default async function SupplierShowroomPage({
             website={websiteLink}
             socialLinks={supplier.socialLinks}
             slug={supplier.slug}
-            showQuoteButton={false} // Disable in banner to avoid duplication
+            showQuoteButton={false}
+            coverImageUrl={limitedBannerImages}
           />
         </div>
       )}
@@ -287,7 +304,6 @@ export default async function SupplierShowroomPage({
                     )}
                   </div>
 
-                  {/* ✅ Quote button - Only show for paid suppliers */}
                   {showQuoteButton && (
                     <div className="shrink-0">
                       <QuoteRequestButton
@@ -352,7 +368,6 @@ export default async function SupplierShowroomPage({
               dangerouslySetInnerHTML={{ __html: supplier.description }}
             />
 
-            {/* ✅ Quote button for paid suppliers - shown below description */}
             {showQuoteButton && (
               <div className="mt-6 flex justify-start">
                 <QuoteRequestButton
@@ -364,7 +379,6 @@ export default async function SupplierShowroomPage({
           </>
         )}
 
-        {/* ✅ MAP SECTION - Shows actual map */}
         {hasValidMap && (
           <div className="mt-8 bg-white rounded-lg shadow p-6">
             <h4 className="text-sm font-semibold text-gray-600 uppercase mb-3 flex items-center gap-2">
@@ -390,10 +404,17 @@ export default async function SupplierShowroomPage({
                 {location}
               </p>
             )}
+            <a
+              href={supplier.googleMapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-3 text-blue-600 hover:underline text-sm"
+            >
+              Open in Google Maps →
+            </a>
           </div>
         )}
 
-        {/* Show location text if no map is available */}
         {!hasValidMap && location && (
           <div className="mt-8 bg-white rounded-lg shadow p-6">
             <h4 className="text-sm font-semibold text-gray-600 uppercase mb-3 flex items-center gap-2">

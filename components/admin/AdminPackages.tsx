@@ -46,7 +46,6 @@ type Draft = {
 // true/false = simple include/exclude, string = custom label like "10 Images" or "Unlimited"
 type FeatureValue = boolean | string;
 type PlanId = "free" | "basic" | "professional" | "enterprise";
-type FeatureMatrix = Record<string, Record<PlanId, FeatureValue>>;
 
 const PLAN_IDS: PlanId[] = ["free", "basic", "professional", "enterprise"];
 const PLAN_LABELS: Record<PlanId, string> = {
@@ -56,62 +55,61 @@ const PLAN_LABELS: Record<PlanId, string> = {
     enterprise: "Enterprise",
 };
 
-// Seed rows shown the first time, before any DB overrides exist.
-// Mirrors the shared feature matrix — used only as a starting point,
-// since the real data now lives on each SUBSCRIPTION package's metadata.features.
-const DEFAULT_FEATURE_NAMES = [
-    "Company Profile",
-    "Company Logo",
-    "Cover Banner",
-    "Company Description",
-    "Contact Details",
-    "Website Link",
-    "Google Map",
-    "WhatsApp Button",
-    "Company Gallery",
-    "Factory Images",
-    "Product Categories",
-    "Product Listings",
-    "Product Images",
-    "Product Videos",
-    "Product Catalogues (PDF)",
-    "Company Brochure",
-    "Certifications Display",
-    "Brands Represented",
-    "Industries Served",
-    "Export Markets",
-    "Manufacturing Capabilities",
-    "Machinery List",
-    "Quality Standards",
-    "Team Profiles",
-    "Verified Supplier Badge",
-    "Technical Articles",
-    "Product Launch Announcements",
-    "Job Postings",
-    "Internship Listings",
-    "Featured Job",
-    "Company Career Page",
-    "Resume Download",
-    "RFQ Leads",
-    "Quote Request Form",
-    "Lead Notifications",
-    "Search Ranking",
-    "Featured in Category",
-    "Homepage Featured",
-    "Newsletter Promotion",
-    "Social Media Promotion",
-    "Homepage Spotlight",
-    "Trending Supplier Badge",
-    "Homepage Hero Banner",
-    "Homepage Sidebar",
-    "Category Banner",
-    "Article Banner",
-    "Sticky Banner",
-    "Factory Visit Feature",
-    "Product Demo Video on Home Page",
-    "Email Support",
-    "Phone Support",
-    "Dedicated Account Manager",
+// Static reference data — mirrors SUBSCRIPTION_FEATURES from lib/packages.js.
+// This is display-only here; it isn't editable and isn't fetched from the DB.
+const STATIC_FEATURES: { name: string; free: FeatureValue; basic: FeatureValue; professional: FeatureValue; enterprise: FeatureValue }[] = [
+    { name: "Company Profile", free: "Standard", basic: "Enhanced", professional: "Premium", enterprise: "Premium+" },
+    { name: "Company Logo", free: true, basic: true, professional: true, enterprise: true },
+    { name: "Cover Banner", free: false, basic: "1", professional: "3", enterprise: "5" },
+    { name: "Company Description", free: "150 Words", basic: "1000 Words", professional: "2500 Words", enterprise: "Unlimited" },
+    { name: "Contact Details", free: "Limited", basic: "Full", professional: "Full", enterprise: "Full" },
+    { name: "Website Link", free: true, basic: true, professional: true, enterprise: true },
+    { name: "Google Map", free: true, basic: true, professional: true, enterprise: true },
+    { name: "WhatsApp Button", free: false, basic: true, professional: true, enterprise: true },
+    { name: "Company Gallery", free: false, basic: "10 Images", professional: "15 Images", enterprise: "Unlimited" },
+    { name: "Factory Images", free: false, basic: "10", professional: "30", enterprise: "Unlimited" },
+    { name: "Product Categories", free: "3", basic: "10", professional: "30", enterprise: "Unlimited" },
+    { name: "Product Listings", free: "5", basic: "25", professional: "100", enterprise: "Unlimited" },
+    { name: "Product Images", free: "10", basic: "50", professional: "100", enterprise: "Unlimited" },
+    { name: "Product Videos", free: false, basic: "5", professional: "20", enterprise: "Unlimited" },
+    { name: "Product Catalogues (PDF)", free: false, basic: "2", professional: "10", enterprise: "Unlimited" },
+    { name: "Company Brochure", free: false, basic: true, professional: true, enterprise: true },
+    { name: "Certifications Display", free: false, basic: true, professional: true, enterprise: true },
+    { name: "Brands Represented", free: false, basic: "10", professional: "Unlimited", enterprise: "Unlimited" },
+    { name: "Industries Served", free: "5", basic: "20", professional: "Unlimited", enterprise: "Unlimited" },
+    { name: "Export Markets", free: false, basic: true, professional: true, enterprise: true },
+    { name: "Manufacturing Capabilities", free: false, basic: "Basic", professional: "Complete", enterprise: "Complete + Photos+Video" },
+    { name: "Machinery List", free: false, basic: "Basic", professional: "Detailed", enterprise: "Detailed with Images" },
+    { name: "Quality Standards", free: false, basic: true, professional: true, enterprise: true },
+    { name: "Team Profiles", free: false, basic: "5", professional: "10", enterprise: "Unlimited" },
+    { name: "Verified Supplier Badge", free: false, basic: "Silver", professional: "Gold", enterprise: "Platinum" },
+    { name: "Technical Articles", free: false, basic: "4/year", professional: "12/year", enterprise: "Unlimited" },
+    { name: "Product Launch Announcements", free: false, basic: false, professional: "6/year", enterprise: "Unlimited" },
+    { name: "Job Postings", free: "2", basic: "20", professional: "Unlimited", enterprise: "Unlimited" },
+    { name: "Internship Listings", free: false, basic: "10", professional: "Unlimited", enterprise: "Unlimited" },
+    { name: "Featured Job", free: false, basic: false, professional: "10 Days", enterprise: "30 Days" },
+    { name: "Company Career Page", free: false, basic: false, professional: false, enterprise: true },
+    { name: "Resume Download", free: false, basic: "10", professional: "20", enterprise: "Unlimited" },
+    { name: "RFQ Leads", free: false, basic: "10 Leads / month", professional: "20 leads / per month", enterprise: "unlimited" },
+    { name: "Quote Request Form", free: false, basic: "yes", professional: "yes", enterprise: "Yes" },
+    { name: "Lead Notifications", free: "Email", basic: "Email", professional: "Email+SMS", enterprise: "Email+Whatsapp+SMS Realtime" },
+    { name: "Search Ranking", free: "Standard", basic: "Priority", professional: "Top Results", enterprise: "#1 Priority" },
+    { name: "Featured in Category", free: false, basic: true, professional: true, enterprise: true },
+    { name: "Homepage Featured", free: false, basic: false, professional: "1 AD / PER MONTH", enterprise: "1 AD PER WEEK" },
+    { name: "Newsletter Promotion", free: false, basic: "3 times per year", professional: "6 times per year", enterprise: "Every Month" },
+    { name: "Social Media Promotion", free: false, basic: "1 Post/Year", professional: "6 Post/Year", enterprise: "12 Posts/Year" },
+    { name: "Homepage Spotlight", free: false, basic: false, professional: true, enterprise: true },
+    { name: "Trending Supplier Badge", free: false, basic: false, professional: false, enterprise: true },
+    { name: "Homepage Hero Banner", free: false, basic: false, professional: false, enterprise: "1 / Rotational" },
+    { name: "Homepage Sidebar", free: false, basic: false, professional: "1 / Rotational", enterprise: "1 / Rotational" },
+    { name: "Category Banner", free: false, basic: false, professional: false, enterprise: "1 / Rotational" },
+    { name: "Article Banner", free: false, basic: false, professional: "1 / Rotational", enterprise: "1 / Rotational" },
+    { name: "Sticky Banner", free: false, basic: false, professional: false, enterprise: "1 / Rotational" },
+    { name: "Factory Visit Feature", free: false, basic: false, professional: false, enterprise: "1/Year" },
+    { name: "Product Demo Video on Home Page", free: false, basic: false, professional: "1/Year", enterprise: "4/ Year" },
+    { name: "Email Support", free: true, basic: true, professional: true, enterprise: "Priority" },
+    { name: "Phone Support", free: false, basic: false, professional: true, enterprise: true },
+    { name: "Dedicated Account Manager", free: false, basic: false, professional: false, enterprise: true },
 ];
 
 const formatInr = (amount: number) =>
@@ -192,42 +190,11 @@ function draftToMetadata(type: Package["type"], draft: Draft) {
     return null;
 }
 
-// Build the initial feature matrix from whatever the 4 SUBSCRIPTION
-// packages currently have in metadata.features, falling back to the
-// default seed list for any feature name that isn't present yet.
-function buildFeatureMatrix(subscriptionPackages: Package[]): FeatureMatrix {
-    const matrix: FeatureMatrix = {};
-
-    const nameSet = new Set<string>(DEFAULT_FEATURE_NAMES);
-    subscriptionPackages.forEach((pkg) => {
-        const features = pkg.metadata?.features;
-        if (features && typeof features === "object" && !Array.isArray(features)) {
-            Object.keys(features).forEach((name) => nameSet.add(name));
-        }
-    });
-
-    nameSet.forEach((name) => {
-        matrix[name] = { free: false, basic: false, professional: false, enterprise: false };
-        subscriptionPackages.forEach((pkg) => {
-            const planId = pkg.id as PlanId;
-            if (!PLAN_IDS.includes(planId)) return;
-            const features = pkg.metadata?.features;
-            const val = features && typeof features === "object" ? features[name] : undefined;
-            if (val !== undefined) {
-                matrix[name][planId] = val;
-            }
-        });
-    });
-
-    return matrix;
-}
-
 export default function AdminPackages() {
     const [packages, setPackages] = useState<Package[]>([]);
     const [drafts, setDrafts] = useState<Record<string, Draft>>({});
     const [loading, setLoading] = useState(true);
     const [savingId, setSavingId] = useState<string | null>(null);
-    const [savingFeatures, setSavingFeatures] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const [fromFallback, setFromFallback] = useState(false);
@@ -415,53 +382,6 @@ export default function AdminPackages() {
         }
     };
 
-    // Save the full plan features matrix. Writes metadata.features onto
-    // each of the 4 SUBSCRIPTION packages (free/basic/professional/enterprise),
-    // preserving every other field on that package as-is.
-    const handleSaveFeatureMatrix = async (matrix: FeatureMatrix) => {
-        setSavingFeatures(true);
-        setError("");
-        try {
-            for (const planId of PLAN_IDS) {
-                const pkg = grouped.SUBSCRIPTION.find((p) => p.id === planId);
-                if (!pkg) continue;
-
-                const featuresForPlan: Record<string, FeatureValue> = {};
-                Object.entries(matrix).forEach(([featureName, values]) => {
-                    featuresForPlan[featureName] = values[planId];
-                });
-
-                const { data } = await apiFetch("/api/admin/packages", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        id: pkg.id,
-                        name: pkg.name,
-                        type: pkg.type,
-                        price: pkg.price,
-                        billingCycle: pkg.billingCycle,
-                        description: pkg.description,
-                        badge: pkg.badge,
-                        displayOrder: pkg.displayOrder,
-                        isHighlighted: pkg.isHighlighted,
-                        isActive: pkg.isActive,
-                        metadata: { ...(pkg.metadata || {}), features: featuresForPlan },
-                    }),
-                });
-
-                if (!data?.success) {
-                    throw new Error(data?.error || `Failed to save features for ${pkg.name}`);
-                }
-            }
-            setSuccess("Plan features saved");
-            await fetchPackages();
-            setTimeout(() => setSuccess(""), 2500);
-        } catch (err: any) {
-            setError(err.message || "Failed to save plan features");
-        } finally {
-            setSavingFeatures(false);
-        }
-    };
-
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -569,24 +489,18 @@ export default function AdminPackages() {
                     </table>
                 </div>
 
-                {/* ---- Plan Features Matrix ---- */}
+                {/* ---- Plan Features (static reference table) ---- */}
                 <div className="mt-6">
-                    {grouped.SUBSCRIPTION.length === PLAN_IDS.length ? (
-                        <PlanFeaturesMatrix
-                            subscriptionPackages={grouped.SUBSCRIPTION}
-                            saving={savingFeatures}
-                            onSave={handleSaveFeatureMatrix}
-                        />
-                    ) : (
-                        <p className="text-xs text-gray-400">
-                            Plan features matrix needs all four plans (free, basic, professional, enterprise) to be present.
-                        </p>
-                    )}
+                    <StaticFeaturesTable />
                 </div>
+                <p className="mt-3 text-xs text-gray-400">
+                    This table is a static reference matching the pricing page's feature comparison —
+                    it comes from a shared code-level list, not per-plan DB data, and isn't editable here.
+                </p>
             </section>
 
             {/* ============ BANNER ============ */}
-            <section>
+            {/* <section>
                 <SectionHeader title="Banner Advertising Packages" subtitle="Premium placements" onAdd={() => setAddingType("BANNER")} />
                 <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
                     <table className="min-w-[800px] w-full border-collapse text-left">
@@ -643,10 +557,10 @@ export default function AdminPackages() {
                         </tbody>
                     </table>
                 </div>
-            </section>
+            </section> */}
 
             {/* ============ SPONSORED ============ */}
-            <section>
+            {/* <section>
                 <SectionHeader title="Sponsored Content Packages" subtitle="Editorial & digital campaigns" onAdd={() => setAddingType("SPONSORED")} />
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                     {grouped.SPONSORED.map((pkg) => {
@@ -695,10 +609,10 @@ export default function AdminPackages() {
                         );
                     })}
                 </div>
-            </section>
+            </section> */}
 
             {/* ============ RECRUITMENT ============ */}
-            <section>
+            {/* <section>
                 <SectionHeader title="Recruitment Packages" subtitle="Monthly job posting" onAdd={() => setAddingType("RECRUITMENT")} />
                 <div className="space-y-4 max-w-xl">
                     {grouped.RECRUITMENT.map((pkg) => {
@@ -740,7 +654,7 @@ export default function AdminPackages() {
                         );
                     })}
                 </div>
-            </section>
+            </section> */}
 
             {/* ============ ADD NEW MODAL ============ */}
             {addingType && (
@@ -889,103 +803,27 @@ function RowActions({
     );
 }
 
-// A single editable cell in the features matrix.
-// Checkbox toggles include/exclude; when included, an optional text
-// field lets you give it a custom label like "10 Images" or "Unlimited".
-function FeatureCell({
-    value, onChange,
-}: {
-    value: FeatureValue;
-    onChange: (next: FeatureValue) => void;
-}) {
-    const included = value !== false && value !== undefined && value !== "";
-    const textValue = typeof value === "string" ? value : "";
-
-    return (
-        <div className="flex items-center justify-center gap-1.5">
-            <input
-                type="checkbox"
-                checked={included}
-                onChange={(e) => onChange(e.target.checked ? (textValue || true) : false)}
-                title={included ? "Included in this plan" : "Not included"}
-            />
-            {included && (
-                <input
-                    className="admin-input text-center"
-                    style={{ minWidth: 80 }}
-                    placeholder="Yes"
-                    value={textValue}
-                    onChange={(e) => onChange(e.target.value === "" ? true : e.target.value)}
-                />
-            )}
-        </div>
-    );
+// Renders a single feature value as plain, read-only text.
+// true -> a checkmark, false -> a dash, string -> shown as-is.
+function StaticFeatureValue({ value }: { value: FeatureValue }) {
+    if (value === true) {
+        return <span className="text-green-600">✓</span>;
+    }
+    if (value === false) {
+        return <span className="text-gray-300">—</span>;
+    }
+    return <span className="text-gray-700">{value}</span>;
 }
 
-// Editable table: rows = features, columns = plans (free/basic/professional/enterprise).
-// Lets admins see and edit exactly what each subscription plan includes,
-// add new feature rows, remove rows, and save the whole matrix at once.
-function PlanFeaturesMatrix({
-    subscriptionPackages, saving, onSave,
-}: {
-    subscriptionPackages: Package[];
-    saving: boolean;
-    onSave: (matrix: FeatureMatrix) => void;
-}) {
-    const [matrix, setMatrix] = useState<FeatureMatrix>(() => buildFeatureMatrix(subscriptionPackages));
-    const [newFeatureName, setNewFeatureName] = useState("");
-
-    // Re-sync local matrix whenever the underlying packages change
-    // (e.g. after a save + refetch), so the table reflects saved state.
-    useEffect(() => {
-        setMatrix(buildFeatureMatrix(subscriptionPackages));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [JSON.stringify(subscriptionPackages.map((p) => [p.id, p.metadata?.features]))]);
-
-    const featureNames = Object.keys(matrix);
-
-    const setCell = (featureName: string, planId: PlanId, value: FeatureValue) => {
-        setMatrix((prev) => ({
-            ...prev,
-            [featureName]: { ...prev[featureName], [planId]: value },
-        }));
-    };
-
-    const removeFeature = (featureName: string) => {
-        setMatrix((prev) => {
-            const next = { ...prev };
-            delete next[featureName];
-            return next;
-        });
-    };
-
-    const addFeature = () => {
-        const name = newFeatureName.trim();
-        if (!name || matrix[name]) return;
-        setMatrix((prev) => ({
-            ...prev,
-            [name]: { free: false, basic: false, professional: false, enterprise: false },
-        }));
-        setNewFeatureName("");
-    };
-
+// Plain, read-only reference table showing what each subscription plan
+// includes. Sourced from a static list (mirrors SUBSCRIPTION_FEATURES in
+// lib/packages.js) — not editable, not fetched from the DB.
+function StaticFeaturesTable() {
     return (
         <div className="rounded-xl border border-gray-200 shadow-sm bg-white">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Plan Features Matrix</h3>
-                    <p className="text-xs text-gray-500">
-                        Tick a box to include a feature in that plan. Add text (e.g. "10 Images", "Unlimited")
-                        for a custom value instead of a plain checkmark.
-                    </p>
-                </div>
-                <button
-                    onClick={() => onSave(matrix)}
-                    disabled={saving}
-                    className="inline-flex items-center px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                >
-                    <Save className="w-4 h-4 mr-1" /> {saving ? "Saving..." : "Save Matrix"}
-                </button>
+            <div className="px-4 py-3 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900">Plan Features</h3>
+                <p className="text-xs text-gray-500">What's included in each subscription plan.</p>
             </div>
 
             <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
@@ -998,51 +836,21 @@ function PlanFeaturesMatrix({
                                     {PLAN_LABELS[planId]}
                                 </th>
                             ))}
-                            <th className="px-4 py-2 text-xs font-semibold uppercase text-center w-12" />
                         </tr>
                     </thead>
                     <tbody>
-                        {featureNames.map((featureName, i) => (
-                            <tr key={featureName} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                                <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">{featureName}</td>
+                        {STATIC_FEATURES.map((row, i) => (
+                            <tr key={row.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                                <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">{row.name}</td>
                                 {PLAN_IDS.map((planId) => (
-                                    <td key={planId} className="px-4 py-2">
-                                        <FeatureCell
-                                            value={matrix[featureName][planId]}
-                                            onChange={(v) => setCell(featureName, planId, v)}
-                                        />
+                                    <td key={planId} className="px-4 py-2 text-center">
+                                        <StaticFeatureValue value={row[planId]} />
                                     </td>
                                 ))}
-                                <td className="px-4 py-2 text-center">
-                                    <button
-                                        onClick={() => removeFeature(featureName)}
-                                        title="Remove this feature row"
-                                        className="p-1 rounded-md text-gray-400 hover:text-red-600"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-            </div>
-
-            <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-100">
-                <input
-                    className="admin-input max-w-xs"
-                    placeholder="New feature name, e.g. Priority Listing"
-                    value={newFeatureName}
-                    onChange={(e) => setNewFeatureName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addFeature()}
-                />
-                <button
-                    onClick={addFeature}
-                    disabled={!newFeatureName.trim()}
-                    className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50"
-                >
-                    <Plus className="w-4 h-4 mr-1" /> Add Feature Row
-                </button>
             </div>
         </div>
     );

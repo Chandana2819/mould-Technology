@@ -76,8 +76,10 @@ function SectionHeading({
   );
 }
 
-// Free Plan Card component
-function FreePlanCard({ onContinue }: { onContinue: () => Promise<void> }) {
+// Free Plan Card — the "Continue" option. Only rendered when the visitor
+// arrived here from the login page (see showFreePlanCard below), so someone
+// who doesn't want to buy a plan can just continue on Free instead.
+function FreePlanCard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -326,12 +328,12 @@ export default function PackagesPageClient() {
         console.error("Failed to fetch packages:", error);
         // Fallback to hardcoded data if API fails
         try {
-          const { SUBSCRIPTION_PLANS, SUBSCRIPTION_FEATURES, BANNER_PACKAGES, SPONSORED_CONTENT_PACKAGES, RECRUITMENT_PACKAGES } = await import('@/lib/packages');
+          const { SUBSCRIPTION_PLANS, SUBSCRIPTION_FEATURES } = await import('@/lib/packages');
           setSubscriptionPlans(SUBSCRIPTION_PLANS as unknown as any[]);
           setSubscriptionFeatures(SUBSCRIPTION_FEATURES);
-          setBannerPackages(BANNER_PACKAGES as unknown as any[]);
-          setSponsoredPackages(SPONSORED_CONTENT_PACKAGES as unknown as any[]);
-          setRecruitmentPackages(RECRUITMENT_PACKAGES as unknown as any[]);
+          // setBannerPackages(BANNER_PACKAGES as unknown as any[]);
+          // setSponsoredPackages(SPONSORED_CONTENT_PACKAGES as unknown as any[]);
+          // setRecruitmentPackages(RECRUITMENT_PACKAGES as unknown as any[]);
           setFromFallback(true);
         } catch (fallbackError) {
           console.error("Failed to load fallback packages:", fallbackError);
@@ -373,8 +375,9 @@ export default function PackagesPageClient() {
     loadCurrentPlan();
   }, []);
 
-  // Show free plan card only if user came from login/signup and hasn't selected a package
-  const showFreePlanCard = (from === "login" || from === "signup") && !isPackageSelected;
+  // Show the Free Plan "Continue" card only when the visitor arrived here
+  // from the login page (not signup) and hasn't already picked a package.
+  const showFreePlanCard = from === "login" && !isPackageSelected;
 
   // Filter out free plan from subscription plans when showing free plan card
   const displaySubscriptionPlans = showFreePlanCard
@@ -413,8 +416,8 @@ export default function PackagesPageClient() {
 
       <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
-          {/* Show Free Plan Card if user came from login/signup */}
-          {showFreePlanCard && <FreePlanCard onContinue={async () => { }} />}
+          {/* Show Free Plan Card only when coming from the login page */}
+          {showFreePlanCard && <FreePlanCard />}
 
           <SectionHeading
             title="ToolingTrends.com Subscription Plans"
@@ -487,7 +490,7 @@ export default function PackagesPageClient() {
         </div>
       </section>
 
-      <section className="bg-[#f8f9fb] py-16 sm:py-20">
+      {/* <section className="bg-[#f8f9fb] py-16 sm:py-20">
         <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
           <SectionHeading
             title="Banner Advertising Packages"
@@ -633,7 +636,7 @@ export default function PackagesPageClient() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
     </main>
   );
 }

@@ -36,6 +36,8 @@ type Post = {
   author?: Author
   category?: Category
   youtubeUrl?: string
+  views?: number
+  shares?: number
 }
 
 /* ================= YOUTUBE HELPERS ================= */
@@ -63,37 +65,101 @@ export default function PostDetailsPage() {
   const slugValue = Array.isArray(slug) ? slug[0] : slug
 
   const [post, setPost] = useState<Post | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showGate, setShowGate] = useState(false)
   const [userSubmitted, setUserSubmitted] = useState(false)
 
-  /* ================= FETCH POST ================= */
+  /* ================= FETCH POST BY SLUG ================= */
   useEffect(() => {
     async function fetchPost() {
+      if (!slugValue) {
+        setLoading(false)
+        return
+      }
+      
+      setLoading(true)
+      setError(null)
+      
       try {
+        // Use the dedicated slug endpoint from your API
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/posts?limit=50`,
-          { cache: "no-store" }
+          `${process.env.NEXT_PUBLIC_API_URL}/api/posts/slug/${encodeURIComponent(slugValue)}`,
+          { 
+            cache: "no-store",
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          }
         )
+        
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error(`Post with slug "${slugValue}" not found`)
+          }
+          throw new Error(`Failed to fetch post: ${res.status}`)
+        }
+        
         const data = await res.json()
-        const posts: Post[] = Array.isArray(data.data) ? data.data : []
-        const found = posts.find(p => p.slug === slugValue)
-        if (found) setPost(found)
+        
+        // The API returns the post object directly (not wrapped in data)
+        if (data && typeof data === 'object' && data.id) {
+          setPost(data)
+        } else {
+          throw new Error("Invalid post data received")
+        }
       } catch (err) {
         console.error("Failed to load post:", err)
+        setError(err instanceof Error ? err.message : "Failed to load post")
+      } finally {
+        setLoading(false)
       }
     }
 
-    if (slugValue) fetchPost()
+    fetchPost()
   }, [slugValue])
 
   /* ================= CONTENT GATE ================= */
   useEffect(() => {
-    if (userSubmitted) return
+    if (userSubmitted || !post || loading) return
     const timer = setTimeout(() => setShowGate(true), 9000)
     return () => clearTimeout(timer)
-  }, [userSubmitted])
+  }, [userSubmitted, post, loading])
 
-  if (!post) return <Loader />
+  /* ================= LOADING STATE ================= */
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f9f9f9]">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#003B5C] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading post...</p>
+        </div>
+      </div>
+    )
+  }
+
+  /* ================= ERROR STATE ================= */
+  if (error || !post) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f9f9f9] px-4">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-6">📄</div>
+          <h2 className="text-2xl font-bold text-[#003B5C] mb-3">
+            Post Not Found
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {error || "The post you're looking for doesn't exist or has been removed."}
+          </p>
+          <a
+            href="/"
+            className="inline-block bg-[#003B5C] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#002d47] transition-colors"
+          >
+            Return to Home
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   const embedUrl = getYoutubeEmbed(post.youtubeUrl)
 
